@@ -145,7 +145,9 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
         windowWidth = NumberUtils.getInt(paramsMap.get(KEY_WIDTH));
         windowHeight = NumberUtils.getInt(paramsMap.get(KEY_HEIGHT));
         imagePath = paramsMap.get(KEY_IMAGE_PATH).toString();
-        headerView = new HeaderView(mContext, headersMap).getView();
+        if(headersMap!=null){
+            headerView = new HeaderView(mContext, headersMap).getView();
+        }
         if (bodyMap != null)
             bodyView = new BodyView(mContext, bodyMap).getView();
         if (footerMap != null)
