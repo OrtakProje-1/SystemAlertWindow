@@ -44,6 +44,7 @@ public class Constants {
     static final String KEY_BOTTOM = "bottom";
     public static final String KEY_WIDTH = "width";
     public static final String KEY_HEIGHT = "height";
+    public static final String KEY_IMAGE_PATH = "imagePath";
     public static final String KEY_ROWS = "rows";
     public static final String KEY_COLUMNS = "columns";
 

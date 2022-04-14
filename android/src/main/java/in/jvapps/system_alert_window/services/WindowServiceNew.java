@@ -8,6 +8,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.os.Build;
@@ -17,7 +18,9 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -41,10 +44,11 @@ import static in.jvapps.system_alert_window.utils.Constants.KEY_FOOTER;
 import static in.jvapps.system_alert_window.utils.Constants.KEY_GRAVITY;
 import static in.jvapps.system_alert_window.utils.Constants.KEY_HEADER;
 import static in.jvapps.system_alert_window.utils.Constants.KEY_HEIGHT;
+import static in.jvapps.system_alert_window.utils.Constants.KEY_IMAGE_PATH;
 import static in.jvapps.system_alert_window.utils.Constants.KEY_MARGIN;
 import static in.jvapps.system_alert_window.utils.Constants.KEY_WIDTH;
 
-public class WindowServiceNew extends Service implements View.OnTouchListener {
+public class WindowServiceNew extends Service implements View.OnTouchListener,View.OnClickListener {
 
     private static final String TAG = WindowServiceNew.class.getSimpleName();
     public static final String CHANNEL_ID = "ForegroundServiceChannel";
@@ -63,12 +67,15 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private LinearLayout headerView;
     private LinearLayout bodyView;
     private LinearLayout footerView;
+    private String imagePath;
 
     private float offsetX;
     private float offsetY;
     private int originalXPos;
     private int originalYPos;
     private boolean moving;
+
+    private double doubleClickLastTime = 0L;
 
     private Context mContext;
 
@@ -137,6 +144,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         windowGravity = (String) paramsMap.get(KEY_GRAVITY);
         windowWidth = NumberUtils.getInt(paramsMap.get(KEY_WIDTH));
         windowHeight = NumberUtils.getInt(paramsMap.get(KEY_HEIGHT));
+        imagePath = paramsMap.get(KEY_IMAGE_PATH).toString();
         headerView = new HeaderView(mContext, headersMap).getView();
         if (bodyMap != null)
             bodyView = new BodyView(mContext, bodyMap).getView();
@@ -174,17 +182,28 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         if (isCreate) {
             windowView = new LinearLayout(mContext);
         }
+        RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(100, 100);
+        lp.addRule(RelativeLayout.CENTER_IN_PARENT);
+        ImageView imageView = new ImageView(getApplicationContext());
+        imageView.setLayoutParams(lp);
+        imageView.setImageBitmap(BitmapFactory.decodeFile(imagePath));
+
+
         windowView.setOrientation(LinearLayout.VERTICAL);
-        windowView.setBackgroundColor(Color.WHITE);
+        windowView.setBackgroundColor(Color.TRANSPARENT);
         windowView.setLayoutParams(params);
         windowView.removeAllViews();
-        windowView.addView(headerView);
+        windowView.addView(imageView);
+        // windowView.addView(headerView);
         if (bodyView != null)
             windowView.addView(bodyView);
         if (footerView != null)
             windowView.addView(footerView);
         if (isEnableDraggable)
+        {
             windowView.setOnTouchListener(this);
+            windowView.setOnClickListener(this);
+        }
     }
 
     private void createWindow(HashMap<String, Object> paramsMap) {
@@ -247,7 +266,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouch(View v, MotionEvent event) {
-        if (null != wm) {
+       /* if (null != wm) {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 float x = event.getRawX();
                 float y = event.getRawY();
@@ -261,6 +280,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
             } else if (event.getAction() == MotionEvent.ACTION_MOVE) {
                 float x = event.getRawX();
                 float y = event.getRawY();
+                System.out.println("x: "+x);
+                System.out.println("y: "+y);
                 WindowManager.LayoutParams params = (WindowManager.LayoutParams) windowView.getLayoutParams();
                 int newX = (int) (offsetX + x);
                 int newY = (int) (offsetY + y);
@@ -275,7 +296,23 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
                 return moving;
             }
         }
+
+        */
         return false;
+    }
+
+    @Override
+    public void onClick(View v) {
+        if(System.currentTimeMillis() - doubleClickLastTime < 300){
+            doubleClickLastTime = 0;
+            doAction();
+        }else{
+            doubleClickLastTime = System.currentTimeMillis();
+        }
+    }
+
+    void doAction(){
+        closeWindow(true);
     }
 
     @Override
@@ -292,4 +329,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     public IBinder onBind(Intent intent) {
         return null;
     }
+
+
 }
