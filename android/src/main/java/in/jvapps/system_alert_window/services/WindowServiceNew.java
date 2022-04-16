@@ -50,6 +50,7 @@ import static in.jvapps.system_alert_window.utils.Constants.KEY_WIDTH;
 
 public class WindowServiceNew extends Service implements View.OnTouchListener,View.OnClickListener {
 
+    private static final String ACTION_STOP_SERVICE="actionStopService";
     private static final String TAG = WindowServiceNew.class.getSimpleName();
     public static final String CHANNEL_ID = "ForegroundServiceChannel";
     private static int NOTIFICATION_ID = 1;
@@ -63,7 +64,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
     private int windowHeight;
     private Margin windowMargin;
 
-    private LinearLayout windowView;
+    private RelativeLayout windowView;
     private LinearLayout headerView;
     private LinearLayout bodyView;
     private LinearLayout footerView;
@@ -82,12 +83,17 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
     @Override
     public void onCreate() {
         createNotificationChannel();
-        Intent notificationIntent = new Intent(this, SystemAlertWindowPlugin.class);
+
+        Intent stopSelf = new Intent(this, SystemAlertWindowPlugin.class);
+        stopSelf.setAction(this.ACTION_STOP_SERVICE);
+
+        //Intent notificationIntent = new Intent(this, SystemAlertWindowPlugin.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(this,
-                0, notificationIntent, 0);
+                0, stopSelf, PendingIntent.FLAG_CANCEL_CURRENT);
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Overlay window service is running")
-                .setSmallIcon(R.drawable.ic_desktop_windows_black_24dp)
+                .setContentTitle("Nişangâh gösteriliyor")
+                .setContentText("Kapatmak için tıklayın")
+                .setSmallIcon(R.drawable.cross)
                 .setContentIntent(pendingIntent)
                 .build();
         startForeground(NOTIFICATION_ID, notification);
@@ -96,6 +102,11 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         //Toast.makeText(this, "service starting", Toast.LENGTH_SHORT).show();
+        if (ACTION_STOP_SERVICE.equals(intent.getAction())) {
+            Log.d(TAG,"called to cancel service");
+            closeWindow(true);
+            stopSelf();
+        }
         if (null != intent && intent.getExtras() != null) {
             @SuppressWarnings("unchecked")
             HashMap<String, Object> paramsMap = (HashMap<String, Object>) intent.getSerializableExtra(INTENT_EXTRA_PARAMS_MAP);
@@ -120,7 +131,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel serviceChannel = new NotificationChannel(
                     CHANNEL_ID,
-                    "Foreground Service Channel",
+                    "Nişangâh bildirimi",
                     NotificationManager.IMPORTANCE_DEFAULT
             );
             NotificationManager manager = getSystemService(NotificationManager.class);
@@ -139,7 +150,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
         Map<String, Object> headersMap = Commons.getMapFromObject(paramsMap, KEY_HEADER);
         Map<String, Object> bodyMap = Commons.getMapFromObject(paramsMap, KEY_BODY);
         Map<String, Object> footerMap = Commons.getMapFromObject(paramsMap, KEY_FOOTER);
-        Log.d(TAG, headersMap.toString());
         windowMargin = UiBuilder.getInstance().getMargin(mContext, paramsMap.get(KEY_MARGIN));
         windowGravity = (String) paramsMap.get(KEY_GRAVITY);
         windowWidth = NumberUtils.getInt(paramsMap.get(KEY_WIDTH));
@@ -167,14 +177,14 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
             params.type = android.view.WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
             params.flags = android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
         }
-        params.gravity = Commons.getGravity(windowGravity, Gravity.TOP);
-        int marginTop = windowMargin.getTop();
-        int marginBottom = windowMargin.getBottom();
-        int marginLeft = windowMargin.getLeft();
-        int marginRight = windowMargin.getRight();
-        params.x = Math.max(marginLeft, marginRight);
-        params.y = (params.gravity == Gravity.TOP) ? marginTop :
-                (params.gravity == Gravity.BOTTOM) ? marginBottom : Math.max(marginTop, marginBottom);
+        params.gravity =  Gravity.CENTER; //Commons.getGravity(windowGravity, Gravity.TOP);
+        // int marginTop = windowMargin.getTop();
+        // int marginBottom = windowMargin.getBottom();
+        // int marginLeft = windowMargin.getLeft();
+        // int marginRight = windowMargin.getRight();
+        //params.x = Math.max(marginLeft, marginRight);
+        //params.y = (params.gravity == Gravity.TOP) ? marginTop :
+        //       (params.gravity == Gravity.BOTTOM) ? marginBottom : Math.max(marginTop, marginBottom);
         return params;
     }
 
@@ -182,16 +192,16 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
     private void setWindowView(WindowManager.LayoutParams params, boolean isCreate) {
         boolean isEnableDraggable = true;//params.width == WindowManager.LayoutParams.MATCH_PARENT;
         if (isCreate) {
-            windowView = new LinearLayout(mContext);
+            windowView = new RelativeLayout(mContext);
         }
-        RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(100, 100);
+        RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(windowWidth*4, windowHeight*4);
         lp.addRule(RelativeLayout.CENTER_IN_PARENT);
         ImageView imageView = new ImageView(getApplicationContext());
         imageView.setLayoutParams(lp);
         imageView.setImageBitmap(BitmapFactory.decodeFile(imagePath));
 
 
-        windowView.setOrientation(LinearLayout.VERTICAL);
+        // windowView.setOrientation(LinearLayout.VERTICAL);
         windowView.setBackgroundColor(Color.TRANSPARENT);
         windowView.setLayoutParams(params);
         windowView.removeAllViews();
