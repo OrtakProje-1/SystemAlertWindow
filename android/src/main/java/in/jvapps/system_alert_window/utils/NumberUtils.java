@@ -6,16 +6,8 @@ public class NumberUtils {
 
     private static final String TAG = "NumberUtils";
 
-    public static float getFloat(Object object) {
-        return getNumber(object).floatValue();
-    }
-
     public static int getInt(Object object) {
         return getNumber(object).intValue();
-    }
-
-    public static long getLong(Object object) {
-        return getNumber(object).longValue();
     }
 
     private static Number getNumber(Object object) {

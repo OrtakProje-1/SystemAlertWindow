@@ -3,12 +3,6 @@
 
 A flutter plugin to show Truecaller like overlay window, over all other apps along with callback events. Android Go or Android 11 & above, this plugin shows notification bubble, in other android versions, it shows an overlay window.
 
-## Android
-
-### Demo
-###### 1. Clip of example app and 2. Working of button click in the background
-<img src="https://github.com/pvsvamsi/SystemAlertWindow/raw/master/assets/images/example%20demo.gif" width="300" height="570">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<img src="https://github.com/pvsvamsi/SystemAlertWindow/raw/master/assets/images/background%20button%20click.gif" width="300" height="570">
-
 ### Manifest
 
       //Permissions

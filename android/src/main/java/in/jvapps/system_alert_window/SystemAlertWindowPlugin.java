@@ -9,8 +9,6 @@ import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
-import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
@@ -25,14 +23,10 @@ import com.google.gson.Gson;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import in.jvapps.system_alert_window.services.WindowServiceNew;
 import in.jvapps.system_alert_window.utils.Commons;
-import in.jvapps.system_alert_window.utils.Constants;
 import in.jvapps.system_alert_window.utils.NotificationHelper;
 import io.flutter.FlutterInjector;
 import io.flutter.embedding.engine.FlutterEngine;
@@ -54,10 +48,8 @@ public class SystemAlertWindowPlugin extends Activity implements FlutterPlugin, 
     private final String flutterEngineId = "system_alert_window_engine";
     private Context mContext;
     private Activity mActivity;
-    public AtomicBoolean sIsIsolateRunning = new AtomicBoolean(false);
 
     private MethodChannel methodChannel;
-    private MethodChannel backgroundChannel;
     public int ACTION_MANAGE_OVERLAY_PERMISSION_REQUEST_CODE = 1237;
     private final String TAG = "SystemAlertWindowPlugin";
 
@@ -137,6 +129,9 @@ public class SystemAlertWindowPlugin extends Activity implements FlutterPlugin, 
             String prefMode;
             JSONArray arguments;
             switch (call.method) {
+                case "getPlatformVersionInt":
+                    result.success(Build.VERSION.SDK_INT);
+                    break;
                 case "getPlatformVersion":
                     result.success("Android " + Build.VERSION.RELEASE);
                     break;
@@ -176,15 +171,6 @@ public class SystemAlertWindowPlugin extends Activity implements FlutterPlugin, 
                     if (prefMode == null) {
                         prefMode = "default";
                     }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && isBubbleMode(prefMode)) {
-                        if (checkPermission(false)) {
-                            Log.d(TAG, "Going to show Bubble");
-                            showBubble(title, body, params);
-                        } else {
-                            Toast.makeText(mContext, "Please enable bubbles", Toast.LENGTH_LONG).show();
-                            result.success(false);
-                        }
-                    } else {
                         if (checkPermission(true)) {
                             Log.d(TAG, "Going to show System Alert Window");
                             final Intent i = new Intent(mContext, WindowServiceNew.class);
@@ -198,7 +184,6 @@ public class SystemAlertWindowPlugin extends Activity implements FlutterPlugin, 
                             Toast.makeText(mContext, "Please give draw over other apps permission", Toast.LENGTH_LONG).show();
                             result.success(false);
                         }
-                    }
                     result.success(true);
                     break;
                 case "updateSystemWindow":
@@ -255,26 +240,7 @@ public class SystemAlertWindowPlugin extends Activity implements FlutterPlugin, 
                         result.success(true);
                     }
                     break;
-                case "registerCallBackHandler":
-                    try {
-                        JSONArray callBackArguments = (JSONArray) call.arguments;
-                        if (callBackArguments != null) {
-                            long callbackHandle = Long.parseLong(String.valueOf(callBackArguments.get(0)));
-                            long onClickHandle = Long.parseLong(String.valueOf(callBackArguments.get(1)));
-                            SharedPreferences preferences = mContext.getSharedPreferences(Constants.SHARED_PREF_SYSTEM_ALERT_WINDOW, 0);
-                            preferences.edit().putLong(Constants.CALLBACK_HANDLE_KEY, callbackHandle)
-                                    .putLong(Constants.CODE_CALLBACK_HANDLE_KEY, onClickHandle).apply();
-                            startCallBackHandler(mContext);
-                            result.success(true);
-                        } else {
-                            Log.e(TAG, "Unable to register on click handler. Arguments are null");
-                            result.success(false);
-                        }
-                    } catch (Exception ex) {
-                        Log.e(TAG, "Exception in registerOnClickHandler " + ex.toString());
-                        result.success(false);
-                    }
-                    break;
+
                 default:
                     result.notImplemented();
             }
@@ -294,98 +260,6 @@ public class SystemAlertWindowPlugin extends Activity implements FlutterPlugin, 
         sPluginRegistrantCallback = callback;
     }*/
 
-    public void startCallBackHandler(Context context) {
-        SharedPreferences preferences = context.getSharedPreferences(Constants.SHARED_PREF_SYSTEM_ALERT_WINDOW, 0);
-        long callBackHandle = preferences.getLong(Constants.CALLBACK_HANDLE_KEY, -1);
-        Log.d(TAG, "onClickCallBackHandle " + callBackHandle);
-        if (callBackHandle != -1) {
-            FlutterCallbackInformation callback = FlutterCallbackInformation.lookupCallbackInformation(callBackHandle);
-            if (callback == null) {
-                Log.e(TAG, "callback handle not found");
-                return;
-            }
-            FlutterEngine backgroundEngine = new FlutterEngine(context);
-            //backgroundEngine.getServiceControlSurface().attachToService(new WindowServiceNew(), null, false);
-            backgroundChannel = new MethodChannel(backgroundEngine.getDartExecutor().getBinaryMessenger(), Constants.BACKGROUND_CHANNEL, JSONMethodCodec.INSTANCE);
-            sIsIsolateRunning.set(true);
-            DartExecutor.DartCallback dartCallback = new DartExecutor.DartCallback(context.getAssets(), FlutterInjector.instance().flutterLoader().findAppBundlePath(), callback);
-            backgroundEngine.getDartExecutor().executeDartCallback(dartCallback);
-        }
-    }
-
-    public void invokeCallBack(Context context, String type, Object params) {
-        List<Object> argumentsList = new ArrayList<>();
-        Log.v(TAG, "invoking callback for tag " + params);
-        /*try {
-            argumentsList.add(type);
-            argumentsList.add(params);
-            Log.v(TAG, "invoking callback for tag "+params);
-            methodChannel.invokeMethod("callBack", argumentsList);
-        } catch (Exception ex) {
-            Log.e(TAG, "invokeCallBack Exception : " + ex.toString());
-            SharedPreferences preferences = context.getSharedPreferences(Constants.SHARED_PREF_SYSTEM_ALERT_WINDOW, 0);
-            long codeCallBackHandle = preferences.getLong(Constants.CODE_CALLBACK_HANDLE_KEY, -1);
-            Log.i(TAG, "codeCallBackHandle " + codeCallBackHandle);
-            if (codeCallBackHandle == -1) {
-                Log.e(TAG, "invokeCallBack failed, as codeCallBackHandle is null");
-            } else {
-                argumentsList.clear();
-                argumentsList.add(codeCallBackHandle);
-                argumentsList.add(type);
-                argumentsList.add(params);
-                backgroundChannel.invokeMethod("callBack", argumentsList);
-            }
-        }*/
-        SharedPreferences preferences = context.getSharedPreferences(Constants.SHARED_PREF_SYSTEM_ALERT_WINDOW, 0);
-        long codeCallBackHandle = preferences.getLong(Constants.CODE_CALLBACK_HANDLE_KEY, -1);
-        //Log.i(TAG, "codeCallBackHandle " + codeCallBackHandle);
-        if (codeCallBackHandle == -1) {
-            Log.e(TAG, "invokeCallBack failed, as codeCallBackHandle is null");
-        } else {
-            argumentsList.clear();
-            argumentsList.add(codeCallBackHandle);
-            argumentsList.add(type);
-            argumentsList.add(params);
-            if (sIsIsolateRunning.get()) {
-                try {
-                    Log.v(TAG, "Invoking on method channel");
-                    int[] retries = {2};
-                    invokeCallBackToFlutter(backgroundChannel, "callBack", argumentsList, retries);
-                    //backgroundChannel.invokeMethod("callBack", argumentsList);
-                } catch (Exception ex) {
-                    Log.e(TAG, "Exception in invoking callback " + ex.toString());
-                }
-            } else {
-                Log.e(TAG, "invokeCallBack failed, as isolate is not running");
-            }
-        }
-    }
-
-    private void invokeCallBackToFlutter(final MethodChannel channel, final String method, final List<Object> arguments, final int[] retries) {
-        channel.invokeMethod(method, arguments, new MethodChannel.Result() {
-            @Override
-            public void success(Object o) {
-                Log.i(TAG, "Invoke call back success");
-            }
-
-            @Override
-            public void error(String s, String s1, Object o) {
-                Log.e(TAG, "Error " + s + s1);
-            }
-
-            @Override
-            public void notImplemented() {
-                //To fix the dart initialization delay.
-                if (retries[0] > 0) {
-                    Log.d(TAG, "Not Implemented method " + method + ". Trying again to check if it works");
-                    invokeCallBackToFlutter(channel, method, arguments, retries);
-                } else {
-                    Log.e(TAG, "Not Implemented method " + method);
-                }
-                retries[0]--;
-            }
-        });
-    }
 
     @TargetApi(Build.VERSION_CODES.M)
     @Override
@@ -439,10 +313,4 @@ public class SystemAlertWindowPlugin extends Activity implements FlutterPlugin, 
         return false;
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.Q)
-    private void showBubble(String title, String body, HashMap params) {
-        Icon icon = Icon.createWithResource(mContext, R.drawable.ic_notification);
-        NotificationHelper notificationHelper = NotificationHelper.getInstance(mContext);
-        notificationHelper.showNotification(icon, title, body, params);
-    }
 }

@@ -19,33 +19,21 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import java.util.HashMap;
-import java.util.Map;
 
 import in.jvapps.system_alert_window.R;
 import in.jvapps.system_alert_window.SystemAlertWindowPlugin;
-import in.jvapps.system_alert_window.models.Margin;
 import in.jvapps.system_alert_window.utils.Commons;
 import in.jvapps.system_alert_window.utils.NumberUtils;
-import in.jvapps.system_alert_window.utils.UiBuilder;
-import in.jvapps.system_alert_window.views.BodyView;
-import in.jvapps.system_alert_window.views.FooterView;
-import in.jvapps.system_alert_window.views.HeaderView;
 
 import static in.jvapps.system_alert_window.utils.Constants.INTENT_EXTRA_PARAMS_MAP;
-import static in.jvapps.system_alert_window.utils.Constants.KEY_BODY;
-import static in.jvapps.system_alert_window.utils.Constants.KEY_FOOTER;
-import static in.jvapps.system_alert_window.utils.Constants.KEY_GRAVITY;
-import static in.jvapps.system_alert_window.utils.Constants.KEY_HEADER;
 import static in.jvapps.system_alert_window.utils.Constants.KEY_HEIGHT;
 import static in.jvapps.system_alert_window.utils.Constants.KEY_IMAGE_PATH;
-import static in.jvapps.system_alert_window.utils.Constants.KEY_MARGIN;
 import static in.jvapps.system_alert_window.utils.Constants.KEY_WIDTH;
 
 public class WindowServiceNew extends Service implements View.OnTouchListener,View.OnClickListener {
@@ -59,22 +47,10 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
 
     private WindowManager wm;
 
-    private String windowGravity;
     private int windowWidth;
     private int windowHeight;
-    private Margin windowMargin;
-
     private RelativeLayout windowView;
-    private LinearLayout headerView;
-    private LinearLayout bodyView;
-    private LinearLayout footerView;
     private String imagePath;
-
-    private float offsetX;
-    private float offsetY;
-    private int originalXPos;
-    private int originalYPos;
-    private boolean moving;
 
     private double doubleClickLastTime = 0L;
 
@@ -147,21 +123,10 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
     }
 
     private void setWindowLayoutFromMap(HashMap<String, Object> paramsMap) {
-        Map<String, Object> headersMap = Commons.getMapFromObject(paramsMap, KEY_HEADER);
-        Map<String, Object> bodyMap = Commons.getMapFromObject(paramsMap, KEY_BODY);
-        Map<String, Object> footerMap = Commons.getMapFromObject(paramsMap, KEY_FOOTER);
-        windowMargin = UiBuilder.getInstance().getMargin(mContext, paramsMap.get(KEY_MARGIN));
-        windowGravity = (String) paramsMap.get(KEY_GRAVITY);
         windowWidth = NumberUtils.getInt(paramsMap.get(KEY_WIDTH));
         windowHeight = NumberUtils.getInt(paramsMap.get(KEY_HEIGHT));
         imagePath = paramsMap.get(KEY_IMAGE_PATH).toString();
-        if(headersMap!=null){
-            headerView = new HeaderView(mContext, headersMap).getView();
-        }
-        if (bodyMap != null)
-            bodyView = new BodyView(mContext, bodyMap).getView();
-        if (footerMap != null)
-            footerView = new FooterView(mContext, footerMap).getView();
+
     }
 
     private WindowManager.LayoutParams getLayoutParams() {
@@ -178,19 +143,12 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
             params.flags = android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
         }
         params.gravity =  Gravity.CENTER; //Commons.getGravity(windowGravity, Gravity.TOP);
-        // int marginTop = windowMargin.getTop();
-        // int marginBottom = windowMargin.getBottom();
-        // int marginLeft = windowMargin.getLeft();
-        // int marginRight = windowMargin.getRight();
-        //params.x = Math.max(marginLeft, marginRight);
-        //params.y = (params.gravity == Gravity.TOP) ? marginTop :
-        //       (params.gravity == Gravity.BOTTOM) ? marginBottom : Math.max(marginTop, marginBottom);
+
         return params;
     }
 
     @SuppressLint("ClickableViewAccessibility")
     private void setWindowView(WindowManager.LayoutParams params, boolean isCreate) {
-        boolean isEnableDraggable = true;//params.width == WindowManager.LayoutParams.MATCH_PARENT;
         if (isCreate) {
             windowView = new RelativeLayout(mContext);
         }
@@ -206,16 +164,10 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
         windowView.setLayoutParams(params);
         windowView.removeAllViews();
         windowView.addView(imageView);
-        // windowView.addView(headerView);
-        if (bodyView != null)
-            windowView.addView(bodyView);
-        if (footerView != null)
-            windowView.addView(footerView);
-        if (isEnableDraggable)
-        {
+
             windowView.setOnTouchListener(this);
             windowView.setOnClickListener(this);
-        }
+
     }
 
     private void createWindow(HashMap<String, Object> paramsMap) {
