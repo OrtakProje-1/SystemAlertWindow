@@ -59,15 +59,18 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
     @Override
     public void onCreate() {
         createNotificationChannel();
+        
+        int requestID = (int) System.currentTimeMillis();
 
-        Intent stopSelf = new Intent(this, SystemAlertWindowPlugin.class);
+        Intent stopSelf = new Intent(this, WindowServiceNew.class);
         stopSelf.setAction(this.ACTION_STOP_SERVICE);
+        stopSelf.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
         //Intent notificationIntent = new Intent(this, SystemAlertWindowPlugin.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this,
-                0, stopSelf, PendingIntent.FLAG_CANCEL_CURRENT);
+        PendingIntent pendingIntent = PendingIntent.getService(this,
+                requestID, stopSelf, PendingIntent.FLAG_UPDATE_CURRENT);
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Nişangâh gösteriliyor")
+                .setContentTitle("Cross gösteriliyor")
                 .setContentText("Kapatmak için tıklayın")
                 .setSmallIcon(R.drawable.cross)
                 .setContentIntent(pendingIntent)
@@ -107,7 +110,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel serviceChannel = new NotificationChannel(
                     CHANNEL_ID,
-                    "Nişangâh bildirimi",
+                    "Cross servis bildirimi",
                     NotificationManager.IMPORTANCE_DEFAULT
             );
             NotificationManager manager = getSystemService(NotificationManager.class);

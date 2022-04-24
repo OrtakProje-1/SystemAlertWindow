@@ -190,7 +190,7 @@ public class SystemAlertWindowPlugin extends Activity implements FlutterPlugin, 
                     assert (call.arguments != null);
                     JSONArray updateArguments = (JSONArray) call.arguments;
                     HashMap<String, Object> updateParams = new Gson().fromJson(((JSONObject) updateArguments.get(2)).toString(), HashMap.class);
-                   
+
 
                         if (checkPermission(true)) {
                             Log.d(TAG, "Going to update System Alert Window");
