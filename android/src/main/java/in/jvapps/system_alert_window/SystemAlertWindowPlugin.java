@@ -189,23 +189,9 @@ public class SystemAlertWindowPlugin extends Activity implements FlutterPlugin, 
                 case "updateSystemWindow":
                     assert (call.arguments != null);
                     JSONArray updateArguments = (JSONArray) call.arguments;
-                    String updateTitle = (String) updateArguments.get(0);
-                    String updateBody = (String) updateArguments.get(1);
                     HashMap<String, Object> updateParams = new Gson().fromJson(((JSONObject) updateArguments.get(2)).toString(), HashMap.class);
-                    prefMode = (String) updateArguments.get(3);
-                    if (prefMode == null) {
-                        prefMode = "default";
-                    }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && isBubbleMode(prefMode)) {
-                        if (checkPermission(false)) {
-                            Log.d(TAG, "Going to update Bubble");
-                            NotificationHelper.getInstance(mContext).dismissNotification();
-                            showBubble(updateTitle, updateBody, updateParams);
-                        } else {
-                            Toast.makeText(mContext, "Please enable bubbles", Toast.LENGTH_LONG).show();
-                            result.success(false);
-                        }
-                    } else {
+                   
+
                         if (checkPermission(true)) {
                             Log.d(TAG, "Going to update System Alert Window");
                             final Intent i = new Intent(mContext, WindowServiceNew.class);
@@ -219,7 +205,6 @@ public class SystemAlertWindowPlugin extends Activity implements FlutterPlugin, 
                             Toast.makeText(mContext, "Please give draw over other apps permission", Toast.LENGTH_LONG).show();
                             result.success(false);
                         }
-                    }
                     result.success(true);
                     break;
                 case "closeSystemWindow":
