@@ -63,7 +63,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
         int requestID = (int) System.currentTimeMillis();
 
         Intent stopSelf = new Intent(this, WindowServiceNew.class);
-        stopSelf.setAction(this.ACTION_STOP_SERVICE);
+        stopSelf.setAction(ACTION_STOP_SERVICE);
         stopSelf.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
         //Intent notificationIntent = new Intent(this, SystemAlertWindowPlugin.class);
@@ -111,7 +111,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
             NotificationChannel serviceChannel = new NotificationChannel(
                     CHANNEL_ID,
                     "Cross servis bildirimi",
-                    NotificationManager.IMPORTANCE_DEFAULT
+                    NotificationManager.IMPORTANCE_HIGH
             );
             NotificationManager manager = getSystemService(NotificationManager.class);
             assert manager != null;
