@@ -65,15 +65,16 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
         Intent stopSelf = new Intent(this, WindowServiceNew.class);
         stopSelf.setAction(ACTION_STOP_SERVICE);
         stopSelf.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-
+        String title= stopSelf.getStringExtra("title");
+        String body = stopSelf.getStringExtra("body");
         //Intent notificationIntent = new Intent(this, SystemAlertWindowPlugin.class);
         PendingIntent pendingIntent = PendingIntent.getService(this,
                 requestID, stopSelf, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE)
                         : PendingIntent.FLAG_UPDATE_CURRENT);
 
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Cross gösteriliyor")
-                .setContentText("Kapatmak için tıklayın")
+                .setContentTitle(title !=null?title: "Cross gösteriliyor")
+                .setContentText(body !=null ? body:"Kapatmak için tıklayın")
                 .setSmallIcon(R.drawable.cross)
                 .setContentIntent(pendingIntent)
                 .build();

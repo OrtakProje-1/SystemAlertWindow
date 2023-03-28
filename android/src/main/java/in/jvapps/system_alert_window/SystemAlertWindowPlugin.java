@@ -178,6 +178,8 @@ public class SystemAlertWindowPlugin extends Activity implements FlutterPlugin, 
                             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                             i.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
                             i.putExtra(INTENT_EXTRA_IS_UPDATE_WINDOW, false);
+                            i.putExtra("title",title);
+                            i.putExtra("body",body);
                             //WindowService.enqueueWork(mContext, i);
                             mContext.startService(i);
                         } else {
