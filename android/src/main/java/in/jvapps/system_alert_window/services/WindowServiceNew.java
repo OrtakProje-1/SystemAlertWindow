@@ -68,7 +68,9 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
 
         //Intent notificationIntent = new Intent(this, SystemAlertWindowPlugin.class);
         PendingIntent pendingIntent = PendingIntent.getService(this,
-                requestID, stopSelf, PendingIntent.FLAG_UPDATE_CURRENT);
+                requestID, stopSelf, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE)
+                        : PendingIntent.FLAG_UPDATE_CURRENT);
+
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Cross gösteriliyor")
                 .setContentText("Kapatmak için tıklayın")

@@ -25,6 +25,10 @@ public class NotificationHelper {
 
     private static NotificationHelper mInstance;
 
+    PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 2, bubbleIntent,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE)
+                : PendingIntent.FLAG_UPDATE_CURRENT);
+
     private NotificationHelper(Context context) {
         this.mContext = context;
         if (isMinAndroidQ())
@@ -74,6 +78,7 @@ public class NotificationHelper {
                     .setDesiredHeight(250)
                     .setAutoExpandBubble(true)
                     .setSuppressNotification(true)
+
                     .build();
         } else {
             return new Notification.BubbleMetadata.Builder()
@@ -82,6 +87,7 @@ public class NotificationHelper {
                     .setIntent(intent)
                     .setAutoExpandBubble(true)
                     .setSuppressNotification(true)
+                    .setContentIntent(pendingIntent)
                     .build();
         }
     }
