@@ -51,6 +51,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
 
     private int windowWidth;
     private int windowHeight;
+    private String windowTitle;
+    private String windowBody;
     private RelativeLayout windowView;
     private String imagePath;
 
@@ -69,18 +71,16 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
         stopSelf.setAction(ACTION_STOP_SERVICE);
         stopSelf.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
-        String title= stopSelf.getStringExtra("title");
-        String body = stopSelf.getStringExtra("body");
-        System.out.print("title: "+title);
-        System.out.print("body: "+body);
+
+
         //Intent notificationIntent = new Intent(this, SystemAlertWindowPlugin.class);
         PendingIntent pendingIntent = PendingIntent.getService(this,
                 requestID, stopSelf, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE)
                         : PendingIntent.FLAG_UPDATE_CURRENT);
 
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle(title !=null?title: "Cross gösteriliyor")
-                .setContentText(body !=null ? body:"Kapatmak için tıklayın")
+                .setContentTitle(windowTitle !=null ? windowTitle : "Cross gösteriliyor")
+                .setContentText(windowBody != null ? windowBody : "Kapatmak için tıklayın")
                 .setSmallIcon(R.drawable.cross)
                 .setContentIntent(pendingIntent)
                 .build();
@@ -99,6 +99,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
             @SuppressWarnings("unchecked")
             HashMap<String, Object> paramsMap = (HashMap<String, Object>) intent.getSerializableExtra(INTENT_EXTRA_PARAMS_MAP);
             mContext = this;
+            windowTitle = intent.getStringExtra("title");
+            windowBody = intent.getStringExtra("body");
             boolean isCloseWindow = intent.getBooleanExtra(INTENT_EXTRA_IS_CLOSE_WINDOW, false);
             if (!isCloseWindow) {
                 assert paramsMap != null;
