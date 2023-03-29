@@ -1,5 +1,7 @@
 package in.jvapps.system_alert_window.services;
 
+import static android.content.Intent.getIntent;
+
 import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -56,17 +58,21 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
 
     private Context mContext;
 
+
     @Override
     public void onCreate() {
         createNotificationChannel();
-        
+
         int requestID = (int) System.currentTimeMillis();
 
         Intent stopSelf = new Intent(this, WindowServiceNew.class);
         stopSelf.setAction(ACTION_STOP_SERVICE);
         stopSelf.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+
         String title= stopSelf.getStringExtra("title");
         String body = stopSelf.getStringExtra("body");
+        System.out.print("title: "+title);
+        System.out.print("body: "+body);
         //Intent notificationIntent = new Intent(this, SystemAlertWindowPlugin.class);
         PendingIntent pendingIntent = PendingIntent.getService(this,
                 requestID, stopSelf, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE)
