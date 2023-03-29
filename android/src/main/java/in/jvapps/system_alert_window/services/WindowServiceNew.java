@@ -56,7 +56,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
     private String windowBody;
     private RelativeLayout windowView;
     private String imagePath;
-
+    PendingIntent pendingIntent;
     private double doubleClickLastTime = 0L;
 
     private Context mContext;
@@ -75,17 +75,17 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
 
 
         //Intent notificationIntent = new Intent(this, SystemAlertWindowPlugin.class);
-        PendingIntent pendingIntent = PendingIntent.getService(this,
+        pendingIntent = PendingIntent.getService(this,
                 requestID, stopSelf, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE)
                         : PendingIntent.FLAG_UPDATE_CURRENT);
 
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle(windowTitle !=null ? windowTitle : "Notification Title")
-                .setContentText(windowBody != null ? windowBody : "Notification Body")
-                .setSmallIcon(R.drawable.cross)
-                .setContentIntent(pendingIntent)
-                .build();
-        startForeground(NOTIFICATION_ID, notification);
+//        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+//                .setContentTitle(windowTitle !=null ? windowTitle : "Notification Title")
+//                .setContentText(windowBody != null ? windowBody : "Notification Body")
+//                .setSmallIcon(R.drawable.cross)
+//                .setContentIntent(pendingIntent)
+//                .build();
+//        startForeground(NOTIFICATION_ID, notification);
     }
 
     @Override
@@ -117,10 +117,20 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
                 closeWindow(true);
             }
         }
+
+        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle(windowTitle !=null ? windowTitle : "Notification Title")
+                .setContentText(windowBody != null ? windowBody : "Notification Body")
+                .setSmallIcon(R.drawable.cross)
+                .setContentIntent(pendingIntent)
+                .build();
+        startForeground(NOTIFICATION_ID, notification);
+
         return START_STICKY;
     }
 
     private void createNotificationChannel() {
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel serviceChannel = new NotificationChannel(
                     CHANNEL_ID,
