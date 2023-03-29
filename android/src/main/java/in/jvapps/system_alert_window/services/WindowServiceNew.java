@@ -22,6 +22,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -79,8 +80,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
                         : PendingIntent.FLAG_UPDATE_CURRENT);
 
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle(windowTitle !=null ? windowTitle : "Cross gösteriliyor")
-                .setContentText(windowBody != null ? windowBody : "Kapatmak için tıklayın")
+                .setContentTitle(windowTitle !=null ? windowTitle : "Notification Title")
+                .setContentText(windowBody != null ? windowBody : "Notification Body")
                 .setSmallIcon(R.drawable.cross)
                 .setContentIntent(pendingIntent)
                 .build();
@@ -101,6 +102,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
             mContext = this;
             windowTitle = intent.getStringExtra("title");
             windowBody = intent.getStringExtra("body");
+            Toast.makeText(mContext,"cross title: "+windowTitle,Toast.LENGTH_LONG).show();
+            Toast.makeText(mContext,"cross body: "+windowBody,Toast.LENGTH_LONG).show();
             boolean isCloseWindow = intent.getBooleanExtra(INTENT_EXTRA_IS_CLOSE_WINDOW, false);
             if (!isCloseWindow) {
                 assert paramsMap != null;
