@@ -102,8 +102,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
             mContext = this;
             windowTitle = intent.getStringExtra("title");
             windowBody = intent.getStringExtra("body");
-            Toast.makeText(mContext,"cross title: "+windowTitle,Toast.LENGTH_LONG).show();
-            Toast.makeText(mContext,"cross body: "+windowBody,Toast.LENGTH_LONG).show();
             boolean isCloseWindow = intent.getBooleanExtra(INTENT_EXTRA_IS_CLOSE_WINDOW, false);
             if (!isCloseWindow) {
                 assert paramsMap != null;
