@@ -91,6 +91,12 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         //Toast.makeText(this, "service starting", Toast.LENGTH_SHORT).show();
+
+        if (intent == null || intent.getAction() ==null){
+            String source = null == intent ? "intent" : "action";
+            Log.e (TAG, source + " was null, flags=" + flags + " bits=" + Integer.toBinaryString (flags));
+            return START_STICKY;
+        }
         if (ACTION_STOP_SERVICE.equals(intent.getAction())) {
             Log.d(TAG,"called to cancel service");
             closeWindow(true);
