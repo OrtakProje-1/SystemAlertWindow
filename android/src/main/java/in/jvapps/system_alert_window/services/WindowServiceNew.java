@@ -39,9 +39,9 @@ import static in.jvapps.system_alert_window.utils.Constants.KEY_HEIGHT;
 import static in.jvapps.system_alert_window.utils.Constants.KEY_IMAGE_PATH;
 import static in.jvapps.system_alert_window.utils.Constants.KEY_WIDTH;
 
-public class WindowServiceNew extends Service implements View.OnTouchListener,View.OnClickListener {
+public class WindowServiceNew extends Service implements View.OnTouchListener, View.OnClickListener {
 
-    private static final String ACTION_STOP_SERVICE="actionStopService";
+    private static final String ACTION_STOP_SERVICE = "actionStopService";
     private static final String TAG = WindowServiceNew.class.getSimpleName();
     public static final String CHANNEL_ID = "ForegroundServiceChannel";
     private static int NOTIFICATION_ID = 1;
@@ -73,7 +73,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
         stopSelf.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
 
-
         //Intent notificationIntent = new Intent(this, SystemAlertWindowPlugin.class);
         pendingIntent = PendingIntent.getService(this,
                 requestID, stopSelf, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE)
@@ -90,13 +89,17 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-
-       
-        if (ACTION_STOP_SERVICE.equals(intent.getAction())) {
-            Log.d(TAG,"called to cancel service");
-            closeWindow(true);
-            stopSelf();
+        if (intent == null) {
+            Log.d(TAG, "--- intent verisi null geldi");
+        } else if (intent.getAction() == null){
+            Log.d(TAG,"--- intent.getAction() verisi null geldi");
         }
+
+            if (intent != null && ACTION_STOP_SERVICE.equals(intent.getAction())) {
+                Log.d(TAG, "called to cancel service");
+                closeWindow(true);
+                stopSelf();
+            }
         if (null != intent && intent.getExtras() != null) {
             @SuppressWarnings("unchecked")
             HashMap<String, Object> paramsMap = (HashMap<String, Object>) intent.getSerializableExtra(INTENT_EXTRA_PARAMS_MAP);
@@ -118,7 +121,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
         }
 
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle(windowTitle !=null ? windowTitle : "Notification Title")
+                .setContentTitle(windowTitle != null ? windowTitle : "Notification Title")
                 .setContentText(windowBody != null ? windowBody : "Notification Body")
                 .setSmallIcon(R.drawable.cross)
                 .setContentIntent(pendingIntent)
@@ -168,7 +171,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
             params.type = android.view.WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
             params.flags = android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
         }
-        params.gravity =  Gravity.CENTER; //Commons.getGravity(windowGravity, Gravity.TOP);
+        params.gravity = Gravity.CENTER; //Commons.getGravity(windowGravity, Gravity.TOP);
 
         return params;
     }
@@ -178,7 +181,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
         if (isCreate) {
             windowView = new RelativeLayout(mContext);
         }
-        RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(windowWidth*4, windowHeight*4);
+        RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(windowWidth * 4, windowHeight * 4);
         lp.addRule(RelativeLayout.CENTER_IN_PARENT);
         ImageView imageView = new ImageView(getApplicationContext());
         imageView.setLayoutParams(lp);
@@ -191,8 +194,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
         windowView.removeAllViews();
         windowView.addView(imageView);
 
-            windowView.setOnTouchListener(this);
-            windowView.setOnClickListener(this);
+        windowView.setOnTouchListener(this);
+        windowView.setOnClickListener(this);
 
     }
 
@@ -211,7 +214,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
     }
 
     private void retryCreateWindow(HashMap<String, Object> paramsMap) {
-        if(wm != null){
+        if (wm != null) {
             wm.removeViewImmediate(windowView);
         }
         closeWindow(false);
@@ -293,15 +296,15 @@ public class WindowServiceNew extends Service implements View.OnTouchListener,Vi
 
     @Override
     public void onClick(View v) {
-        if(System.currentTimeMillis() - doubleClickLastTime < 300){
+        if (System.currentTimeMillis() - doubleClickLastTime < 300) {
             doubleClickLastTime = 0;
             doAction();
-        }else{
+        } else {
             doubleClickLastTime = System.currentTimeMillis();
         }
     }
 
-    void doAction(){
+    void doAction() {
         closeWindow(true);
     }
 
