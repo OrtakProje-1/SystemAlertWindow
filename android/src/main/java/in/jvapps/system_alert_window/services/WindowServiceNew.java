@@ -89,14 +89,11 @@ public class WindowServiceNew extends Service implements View.OnTouchListener, V
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null) {
-            Log.d(TAG, "--- intent verisi null geldi");
-        } else if (intent.getAction() == null){
-            Log.d(TAG,"--- intent.getAction() verisi null geldi");
-        }
 
-            if (intent != null && ACTION_STOP_SERVICE.equals(intent.getAction())) {
-                Log.d(TAG, "called to cancel service");
+
+            if (intent != null && ACTION_STOP_SERVICE == intent.getAction()) {
+
+                Log.d(TAG, "called to cancel service, intent.getAction: " + intent.getAction());
                 closeWindow(true);
                 stopSelf();
             }
