@@ -1,7 +1,5 @@
 package in.jvapps.system_alert_window.services;
 
-import static android.content.Intent.getIntent;
-
 import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -22,15 +20,14 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
-import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import java.util.HashMap;
+import java.util.Objects;
 
 import in.jvapps.system_alert_window.R;
-import in.jvapps.system_alert_window.SystemAlertWindowPlugin;
 import in.jvapps.system_alert_window.utils.Commons;
 import in.jvapps.system_alert_window.utils.NumberUtils;
 
@@ -44,7 +41,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener, V
     private static final String ACTION_STOP_SERVICE = "actionStopService";
     private static final String TAG = WindowServiceNew.class.getSimpleName();
     public static final String CHANNEL_ID = "ForegroundServiceChannel";
-    private static int NOTIFICATION_ID = 1;
+    private static final int NOTIFICATION_ID = 1;
     public static final String INTENT_EXTRA_IS_UPDATE_WINDOW = "IsUpdateWindow";
     public static final String INTENT_EXTRA_IS_CLOSE_WINDOW = "IsCloseWindow";
 
@@ -56,6 +53,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener, V
     private String windowBody;
     private RelativeLayout windowView;
     private String imagePath;
+    private int offsetX;
+    private int offsetY;
     PendingIntent pendingIntent;
     private double doubleClickLastTime = 0L;
 
@@ -77,21 +76,11 @@ public class WindowServiceNew extends Service implements View.OnTouchListener, V
         pendingIntent = PendingIntent.getService(this,
                 requestID, stopSelf, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? (PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE)
                         : PendingIntent.FLAG_UPDATE_CURRENT);
-
-//        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-//                .setContentTitle(windowTitle !=null ? windowTitle : "Notification Title")
-//                .setContentText(windowBody != null ? windowBody : "Notification Body")
-//                .setSmallIcon(R.drawable.cross)
-//                .setContentIntent(pendingIntent)
-//                .build();
-//        startForeground(NOTIFICATION_ID, notification);
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-
-
-            if (intent != null && ACTION_STOP_SERVICE == intent.getAction()) {
+            if (intent != null && ACTION_STOP_SERVICE.equals(intent.getAction())) {
 
                 Log.d(TAG, "called to cancel service, intent.getAction: " + intent.getAction());
                 closeWindow(true);
@@ -151,8 +140,9 @@ public class WindowServiceNew extends Service implements View.OnTouchListener, V
     private void setWindowLayoutFromMap(HashMap<String, Object> paramsMap) {
         windowWidth = NumberUtils.getInt(paramsMap.get(KEY_WIDTH));
         windowHeight = NumberUtils.getInt(paramsMap.get(KEY_HEIGHT));
-        imagePath = paramsMap.get(KEY_IMAGE_PATH).toString();
-
+        imagePath = Objects.requireNonNull(paramsMap.get(KEY_IMAGE_PATH)).toString();
+        offsetX = NumberUtils.getInt(paramsMap.get("offsetX"));
+        offsetY = NumberUtils.getInt(paramsMap.get("offsetY"));
     }
 
     private WindowManager.LayoutParams getLayoutParams() {
@@ -169,7 +159,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener, V
             params.flags = android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
         }
         params.gravity = Gravity.CENTER; //Commons.getGravity(windowGravity, Gravity.TOP);
-
+        params.x = offsetX;
+        params.y = offsetY;
         return params;
     }
 
@@ -206,11 +197,11 @@ public class WindowServiceNew extends Service implements View.OnTouchListener, V
             wm.addView(windowView, params);
         } catch (Exception ex) {
             Log.e(TAG, ex.toString());
-            retryCreateWindow(paramsMap);
+            retryCreateWindow();
         }
     }
 
-    private void retryCreateWindow(HashMap<String, Object> paramsMap) {
+    private void retryCreateWindow() {
         if (wm != null) {
             wm.removeViewImmediate(windowView);
         }
@@ -256,38 +247,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener, V
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouch(View v, MotionEvent event) {
-       /* if (null != wm) {
-            if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                float x = event.getRawX();
-                float y = event.getRawY();
-                moving = false;
-                int[] location = new int[2];
-                windowView.getLocationOnScreen(location);
-                originalXPos = location[0];
-                originalYPos = location[1];
-                offsetX = originalXPos - x;
-                offsetY = originalYPos - y;
-            } else if (event.getAction() == MotionEvent.ACTION_MOVE) {
-                float x = event.getRawX();
-                float y = event.getRawY();
-                System.out.println("x: "+x);
-                System.out.println("y: "+y);
-                WindowManager.LayoutParams params = (WindowManager.LayoutParams) windowView.getLayoutParams();
-                int newX = (int) (offsetX + x);
-                int newY = (int) (offsetY + y);
-                if (Math.abs(newX - originalXPos) < 1 && Math.abs(newY - originalYPos) < 1 && !moving) {
-                    return false;
-                }
-                params.x = newX;
-                params.y = newY;
-                wm.updateViewLayout(windowView, params);
-                moving = true;
-            } else if (event.getAction() == MotionEvent.ACTION_UP) {
-                return moving;
-            }
-        }
-
-        */
         return false;
     }
 

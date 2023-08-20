@@ -39,6 +39,8 @@ class SystemAlertWindow {
     SystemWindowGravity gravity = SystemWindowGravity.CENTER,
     int? width,
     int? height,
+    int? offsetX,
+    int? offsetY,
     String notificationTitle = "Title",
     String notificationBody = "Body",
     SystemWindowPrefMode prefMode = SystemWindowPrefMode.DEFAULT,
@@ -48,6 +50,8 @@ class SystemAlertWindow {
       'width': width ?? Constants.MATCH_PARENT,
       'height': height ?? Constants.WRAP_CONTENT,
       'imagePath': imagePath,
+      'offsetX': offsetX,
+      'offsetY': offsetY
     };
     return await _channel.invokeMethod('showSystemWindow', [
       notificationTitle,
@@ -62,6 +66,8 @@ class SystemAlertWindow {
     SystemWindowGravity gravity = SystemWindowGravity.CENTER,
     int? width,
     int? height,
+    int? offsetX,
+    int? offsetY,
     String notificationTitle = "Title",
     String notificationBody = "Body",
     SystemWindowPrefMode prefMode = SystemWindowPrefMode.DEFAULT,
@@ -71,6 +77,8 @@ class SystemAlertWindow {
       'width': width ?? Constants.MATCH_PARENT,
       'height': height ?? Constants.WRAP_CONTENT,
       'imagePath': imagePath,
+      'offsetX': offsetX,
+      'offsetY': offsetY
     };
     return await _channel.invokeMethod('updateSystemWindow', [
       notificationTitle,
