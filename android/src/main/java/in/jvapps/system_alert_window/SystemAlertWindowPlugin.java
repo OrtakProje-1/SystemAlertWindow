@@ -100,7 +100,7 @@ public class SystemAlertWindowPlugin implements FlutterPlugin, ActivityAware,Bas
             FlutterEngineGroup enn = new FlutterEngineGroup(context);
             DartExecutor.DartEntrypoint dEntry = new DartExecutor.DartEntrypoint(
                     FlutterInjector.instance().flutterLoader().findAppBundlePath(),
-                    "overlayMain");
+                    "systemAlertOverlayMain");
             FlutterEngine engine = enn.createAndRunEngine(context, dEntry);
             FlutterEngineCache.getInstance().put(Constants.FLUTTER_CACHE_ENGINE, engine);
 
