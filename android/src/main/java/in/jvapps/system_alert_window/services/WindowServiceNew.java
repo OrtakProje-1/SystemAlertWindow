@@ -2,6 +2,7 @@ package in.jvapps.system_alert_window.services;
 
 import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE;
 
+import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -14,11 +15,15 @@ import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.os.Build;
 import android.os.IBinder;
+import android.util.DisplayMetrics;
+import android.view.Display;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.animation.DecelerateInterpolator;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
@@ -51,13 +56,24 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private String windowGravity;
     private int windowWidth;
     private int windowHeight;
+    private View dismissAreaView;
+    private boolean isDismissAreaVisible = false;
 
 
-    private FlutterView flutterView;
-    private int paramFlags =  Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED : WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED;
+    private View flutterView;
+    private final int paramFlags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+            ? WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED |
+            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+            : WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED |
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
     private int paramsFromDart;
     private final int paramType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
     private float offsetY;
+    private float offsetX;
+    private int initialX, initialY;
     private boolean moving;
 
     @SuppressLint("UnspecifiedImmutableFlag")
@@ -168,10 +184,11 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
             flutterView = new FlutterView(getApplicationContext(), new FlutterTextureView(getApplicationContext()));
             flutterView.attachToFlutterEngine(Objects.requireNonNull(FlutterEngineCache.getInstance().get(Constants.FLUTTER_CACHE_ENGINE)));
             flutterView.setFitsSystemWindows(true);
-            flutterView.setFocusable(true);
-            flutterView.setFocusableInTouchMode(true);
+            flutterView.setFocusable(false);
+            flutterView.setFocusableInTouchMode(false);
             flutterView.setBackgroundColor(Color.TRANSPARENT);
             flutterView.setOnTouchListener(this);
+            createDismissArea();
             try {
                 windowManager.addView(flutterView, params);
             } catch (Exception ex) {
@@ -199,8 +216,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
             flutterView = new FlutterView(getApplicationContext(), new FlutterTextureView(getApplicationContext()));
             flutterView.attachToFlutterEngine(Objects.requireNonNull(FlutterEngineCache.getInstance().get(Constants.FLUTTER_CACHE_ENGINE)));
             flutterView.setFitsSystemWindows(true);
-            flutterView.setFocusable(true);
-            flutterView.setFocusableInTouchMode(true);
+            flutterView.setFocusable(false);
+            flutterView.setFocusableInTouchMode(false);
             flutterView.setBackgroundColor(Color.TRANSPARENT);
             flutterView.setOnTouchListener(this);
             windowManager.addView(flutterView, params);
@@ -238,28 +255,47 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     }
 
     @SuppressLint("ClickableViewAccessibility")
+    @Override
     public boolean onTouch(View v, MotionEvent event) {
         if (windowManager != null) {
             WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
                     moving = false;
+                    offsetX = event.getRawX();
                     offsetY = event.getRawY();
+                    initialX = params.x;
+                    initialY = params.y;
                     break;
                 case MotionEvent.ACTION_MOVE:
+                    float dx = event.getRawX() - offsetX;
                     float dy = event.getRawY() - offsetY;
-                    if (!moving && Math.abs(dy) > 25) {
+                    if (!moving && (Math.abs(dy) > 10 || Math.abs(dx) > 10)) {
                         moving = true;
+                        showDismissArea(true);
                     }
                     if (moving) {
-                        offsetY = event.getRawY();
-                        params.y = params.y + (int) dy;
+                        params.x = initialX + (int) dx;
+                        params.y = initialY + (int) dy;
                         windowManager.updateViewLayout(flutterView, params);
+                        checkDismissArea(params.y, params.x);
                     }
                     break;
                 case MotionEvent.ACTION_UP:
-                default:
-                    return false;
+                    if (moving) {
+                        // Kapatma alanında mı kontrol et
+                        if (isInDismissArea(params.y, params.x)) {
+                            // Overlay'i kapat
+                            closeOverlay();
+                        } else {
+                            // Normal kenara yapışma
+                            snapToEdge(params);
+                        }
+                        // Sürükleme bittiğinde kapatma alanını gizle
+                        showDismissArea(false);
+                    }
+                    moving = false;
+                    break;
             }
             return false;
         }
@@ -285,5 +321,169 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     @Override
     public IBinder onBind(Intent intent) {
         return null;
+    }
+
+    private void snapToEdge(@NonNull WindowManager.LayoutParams params) {
+        if (params == null) {
+            LogUtils.getInstance().e(TAG, "snapToEdge: params is null");
+            return;
+        }
+
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        boolean metricsObtained = false;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Display display = getDisplay();
+            if (display != null) {
+                display.getRealMetrics(displayMetrics);
+                metricsObtained = true;
+            } else {
+                Context context = getApplicationContext();
+                if (context != null) {
+                    display = context.getDisplay();
+                    if (display != null) {
+                        display.getRealMetrics(displayMetrics);
+                        metricsObtained = true;
+                    }
+                }
+            }
+        } else {
+            WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+            if (wm != null) {
+                Display display = wm.getDefaultDisplay();
+                if (display != null) {
+                    display.getMetrics(displayMetrics);
+                    metricsObtained = true;
+                }
+            }
+        }
+
+        if (!metricsObtained) {
+            LogUtils.getInstance().e(TAG, "snapToEdge: Could not obtain display metrics");
+            return;
+        }
+
+        int screenWidth = displayMetrics.widthPixels;
+        if (screenWidth <= 0) {
+            LogUtils.getInstance().e(TAG, "snapToEdge: Invalid screen width: " + screenWidth);
+            return;
+        }
+
+        int overlayWidth = 200; // Default değer
+        if (flutterView != null) {
+            overlayWidth = flutterView.getWidth();
+            if (overlayWidth <= 0) {
+                overlayWidth = 200; // Fallback değer
+            }
+        }
+
+        // Overlay genişliğinin ekran genişliğini aşmamasını sağla
+        if (overlayWidth > screenWidth) {
+            overlayWidth = screenWidth;
+        }
+
+        int overlayCenter = overlayWidth / 2;
+        int currentX = params.x;
+
+        int screenCenter = screenWidth / 2;
+
+        int targetX;
+        if (currentX + overlayCenter < screenCenter) {
+            targetX = 0;
+        } else {
+            targetX = screenWidth - overlayWidth;
+        }
+
+        // Negatif koordinat kontrolü
+        if (targetX < 0) {
+            targetX = 0;
+        }
+
+        // Animasyon
+        animateToPosition(currentX, targetX, params);
+    }
+
+    private void animateToPosition(int startX, int endX, WindowManager.LayoutParams params) {
+        ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
+        animator.setDuration(300);
+        animator.setInterpolator(new DecelerateInterpolator());
+
+        animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(@NonNull ValueAnimator animation) {
+                float progress = (float) animation.getAnimatedValue();
+                params.x = (int) (startX + (endX - startX) * progress);
+                try {
+                    windowManager.updateViewLayout(flutterView, params);
+                } catch (Exception e) {
+                    animator.cancel();
+                }
+            }
+        });
+        animator.start();
+    }
+    private void checkDismissArea(int y, int x) {
+        if (isInDismissArea(y, x)) {
+            // Kapatma alanında - görsel geri bildirim
+            dismissAreaView.setBackgroundColor(Color.parseColor("#FF6666")); // Daha parlak kırmızı
+        } else {
+            // Kapatma alanında değil
+            dismissAreaView.setBackgroundColor(Color.parseColor("#FF4444")); // Normal kırmızı
+        }
+    }
+
+    private void createDismissArea() {
+        dismissAreaView = new View(this);
+        dismissAreaView.setBackgroundColor(Color.parseColor("#FF4444")); // Kırmızı arka plan
+
+        // Kapatma alanı layout parametreleri
+        WindowManager.LayoutParams dismissParams = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT, // Genişlik
+                120, // Yükseklik (120px)
+                paramType,
+                paramFlags,
+                PixelFormat.TRANSLUCENT);
+
+        dismissParams.gravity = Gravity.BOTTOM | Gravity.START;
+        dismissParams.y = 0; // Alt kenarda
+
+        // Başlangıçta gizli
+        dismissAreaView.setVisibility(View.GONE);
+
+        // Kapatma alanını ekrana ekle
+        windowManager.addView(dismissAreaView, dismissParams);
+    }
+    private void showDismissArea(boolean show) {
+        if (dismissAreaView != null) {
+            dismissAreaView.setVisibility(show ? View.VISIBLE : View.GONE);
+            isDismissAreaVisible = show;
+        }
+    }
+    private boolean isInDismissArea(int y, int x) {
+        if (!isDismissAreaVisible)
+            return false;
+
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        windowManager.getDefaultDisplay().getMetrics(displayMetrics);
+        int screenHeight = displayMetrics.heightPixels;
+
+        // Ekranın alt 120px'lik alanı
+        return y > screenHeight - 120;
+    }
+    private void closeOverlay() {
+        try {
+            // Flutter overlay'ini kapat
+            if (flutterView != null) {
+                windowManager.removeView(flutterView);
+            }
+            // Kapatma alanını kapat
+            if (dismissAreaView != null) {
+                windowManager.removeView(dismissAreaView);
+            }
+            // Servisi durdur
+            stopSelf();
+        } catch (Exception e) {
+            LogUtils.getInstance().i(TAG, "Error closing overlay:" + e.getMessage());
+        }
     }
 }
