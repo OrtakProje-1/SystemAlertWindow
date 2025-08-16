@@ -2,6 +2,7 @@ package in.jvapps.system_alert_window;
 
 import static in.jvapps.system_alert_window.services.WindowServiceNew.INTENT_EXTRA_IS_CLOSE_WINDOW;
 import static in.jvapps.system_alert_window.services.WindowServiceNew.INTENT_EXTRA_IS_UPDATE_WINDOW;
+import static in.jvapps.system_alert_window.services.WindowServiceNew.INTENT_EXTRA_NOTIFICATION_TITLE;
 import static in.jvapps.system_alert_window.utils.Constants.INTENT_EXTRA_PARAMS_MAP;
 
 import android.annotation.TargetApi;
@@ -122,6 +123,7 @@ public class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler, P
                             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                             i.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
                             i.putExtra(INTENT_EXTRA_IS_UPDATE_WINDOW, false);
+                            i.putExtra(INTENT_EXTRA_NOTIFICATION_TITLE, title);
                             mContext.startService(i);
                             result.success(true);
                         } else {
@@ -159,6 +161,7 @@ public class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler, P
                             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                             i.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
                             i.putExtra(INTENT_EXTRA_IS_UPDATE_WINDOW, true);
+                            i.putExtra(INTENT_EXTRA_NOTIFICATION_TITLE, updateTitle);
                             mContext.startService(i);
                             result.success(true);
                         } else {
