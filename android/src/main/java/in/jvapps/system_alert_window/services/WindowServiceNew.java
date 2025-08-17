@@ -372,16 +372,31 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
 
     private void moveTheOverlayByDismissArea() {
 
-        int width = flutterView.getWidth();
-        int height = flutterView.getHeight();
 
-        LogUtils.getInstance().i(TAG,"---moveTheOverlayByDismissArea: width=" + width + ", height=" + height + ", dismissAreaView-Width" + dismissAreaView.getWidth() + "dismissAreaView-Height" + dismissAreaView.getHeight());
-        //width=61, height=61, dismissAreaView-Width80dismissAreaView-Height80
+
+        LogUtils.getInstance().i(TAG,"|------------------Move The Overlay By Dismiss Area-----------------------|");
+
         WindowManager.LayoutParams dismissParams = (WindowManager.LayoutParams) dismissAreaView.getLayoutParams();
         WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();
-        params.gravity = dismissParams.gravity;
-        params.x = dismissParams.x + ((80 - width)/2);
-        params.y = dismissParams.y + ((80 - height)/2);
+
+        int flutterWidth = params.width > 0 ? params.width : flutterView.getWidth();
+        int flutterHeight = params.height > 0 ? params.height : flutterView.getHeight();
+
+        int dismissWidth = dismissParams.width > 0 ? dismissParams.width : dismissAreaView.getWidth();
+        int dismissHeight = dismissParams.height > 0 ? dismissParams.height : dismissAreaView.getHeight();
+
+        LogUtils.getInstance().i(TAG,"|---flutterView.Width= " + flutterWidth + ", flutterView.Height= " + flutterHeight);
+        LogUtils.getInstance().i(TAG,"|---dismissAreaView.Width= " + dismissWidth + ", dismissAreaView.Height= " + dismissHeight);
+
+        LogUtils.getInstance().i(TAG,"|---old params flutterView.X= " + params.x + ", flutterView.Y= " + params.y);
+        LogUtils.getInstance().i(TAG,"|---dismissParams.X= " + dismissParams.x + ", dismissParams.Y= " + dismissParams.y);
+
+
+//        params.gravity = dismissParams.gravity;
+        params.x = dismissParams.x + (dismissWidth - flutterWidth)/2;
+        params.y = dismissParams.y;
+
+        LogUtils.getInstance().i(TAG,"|---newParams  flutterView.X= " + params.x + ", flutterView.Y= " + params.y);
         windowManager.updateViewLayout(flutterView, params);
     }
 
@@ -554,21 +569,22 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
 
             dismissAreaView = View.inflate(this, R.layout.dismis_area, null);
 
+            int dimension = Commons.getPixelsFromDp(this, 50);
             GradientDrawable ovalBackground = new GradientDrawable();
             ovalBackground.setShape(GradientDrawable.OVAL);
-            ovalBackground.setSize(120, 120);
+            ovalBackground.setSize(dimension,dimension);
             dismissAreaView.setBackground(ovalBackground);
 
 
             WindowManager.LayoutParams dismissParams = new WindowManager.LayoutParams(
-                    80,
-                    80,
+                    dimension,
+                    dimension,
                     myParamType,
                     myParamFlags,
                     PixelFormat.TRANSLUCENT);
             dismissParams.gravity = Gravity.START | Gravity.CENTER;
-            dismissParams.y = (screenHeight / 2) - 160;
-            dismissParams.x = (screenWidth /2) - 60;
+            dismissParams.y = (screenHeight / 2) - dimension;
+            dismissParams.x = (screenWidth /2) - dimension /2;
             dismissAreaView.setVisibility(View.GONE);
             dismissParam = dismissParams;
 
