@@ -86,6 +86,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
 
     WindowManager.LayoutParams dismissParam;
 
+    private boolean isInDismissArea = false;
+    private boolean isSmallLayout = true;
 
 
     @SuppressLint("UnspecifiedImmutableFlag")
@@ -197,6 +199,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         windowGravity = (String) paramsMap.get(Constants.KEY_GRAVITY);
         windowWidth = NumberUtils.getInt(paramsMap.get(Constants.KEY_WIDTH));
         windowHeight = NumberUtils.getInt(paramsMap.get(Constants.KEY_HEIGHT));
+        isSmallLayout = windowHeight == windowWidth;
     }
 
     private WindowManager.LayoutParams getLayoutParams() {
@@ -318,34 +321,33 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
                     float Y = event.getRawY();
                     float dx = X - offsetX;
                     float dy = Y - offsetY;
-
                     if (!moving && (Math.abs(dy) > 10 || Math.abs(dx) > 10)) {
                         moving = true;
                         showDismissArea(true);
                     }
                     if (moving) {
                         if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return false;
-
-                        params.x = initialX + (int) dx;
-                        params.y = initialY + (int) dy;
-
-                        windowManager.updateViewLayout(flutterView, params);
-
-
+                        int oldParamsX = params.x;
+                        int oldParamsY = params.y;
                         boolean inDismissArea = isPointInArea(
-                                params.x,
-                                params.y,
+                                initialX + (int) dx,
+                                initialY + (int) dy,
                                 dismissParam.x,
-                                dismissParam.y,
-                                120
+                                dismissParam.y
                         );
-                        LogUtils.getInstance().i(TAG, "---onTouch: params.x=" + params.x + ", params.y=" + params.y * 2 + "\n");
-                        LogUtils.getInstance().i(TAG, "---onTouch: dismissParam.x=" + dismissParam.x + ", dismissParam.y=" + dismissParam.y + "\n");
-                        LogUtils.getInstance().i(TAG, "---onTouch: inDismissArea=" + inDismissArea + "\n");
                         checkDismissArea(inDismissArea);
-                        if(inDismissArea){
+                        if (!isInDismissArea && inDismissArea) {
                             moveTheOverlayByDismissArea();
                         }
+                        if (isInDismissArea && !inDismissArea) {
+                            animateToPosition(oldParamsX, (initialX + (int) dx), oldParamsY, (initialY + (int) dy), params);
+                        }
+                        if (!inDismissArea) {
+                            params.x = initialX + (int) dx;
+                            params.y = initialY + (int) dy;
+                            windowManager.updateViewLayout(flutterView, params);
+                        }
+                        isInDismissArea = inDismissArea;
                     }
                     break;
                 case MotionEvent.ACTION_UP:
@@ -371,36 +373,15 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     }
 
     private void moveTheOverlayByDismissArea() {
-
-
-
-        LogUtils.getInstance().i(TAG,"|------------------Move The Overlay By Dismiss Area-----------------------|");
-
         WindowManager.LayoutParams dismissParams = (WindowManager.LayoutParams) dismissAreaView.getLayoutParams();
         WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();
-
         int flutterWidth = params.width > 0 ? params.width : flutterView.getWidth();
-        int flutterHeight = params.height > 0 ? params.height : flutterView.getHeight();
-
         int dismissWidth = dismissParams.width > 0 ? dismissParams.width : dismissAreaView.getWidth();
-        int dismissHeight = dismissParams.height > 0 ? dismissParams.height : dismissAreaView.getHeight();
-
-        LogUtils.getInstance().i(TAG,"|---flutterView.Width= " + flutterWidth + ", flutterView.Height= " + flutterHeight);
-        LogUtils.getInstance().i(TAG,"|---dismissAreaView.Width= " + dismissWidth + ", dismissAreaView.Height= " + dismissHeight);
-
-        LogUtils.getInstance().i(TAG,"|---old params flutterView.X= " + params.x + ", flutterView.Y= " + params.y);
-        LogUtils.getInstance().i(TAG,"|---dismissParams.X= " + dismissParams.x + ", dismissParams.Y= " + dismissParams.y);
-
-
-//        params.gravity = dismissParams.gravity;
-        params.x = dismissParams.x + (dismissWidth - flutterWidth)/2;
-        params.y = dismissParams.y;
-
-        LogUtils.getInstance().i(TAG,"|---newParams  flutterView.X= " + params.x + ", flutterView.Y= " + params.y);
-        windowManager.updateViewLayout(flutterView, params);
+        animateToPosition(params.x, dismissParams.x + ((dismissWidth - flutterWidth) / 2) + 1, params.y, dismissParams.y - 2, params);
     }
 
-    private boolean isPointInArea(int x1, int y1, int x2, int y2, int radius) {
+    private boolean isPointInArea(int x1, int y1, int x2, int y2) {
+        int radius = 150;
         return x1 >= x2 - radius && x1 <= x2 + radius &&
                 y1 >= y2 - radius && y1 <= y2 + radius;
     }
@@ -510,17 +491,28 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         } else {
             targetX = screenWidth - overlayWidth;
         }
-        animateToPosition(currentX, targetX, params);
+        animateToPosition(currentX, targetX, null, null, params);
     }
 
-    private void animateToPosition(int startX, int endX, WindowManager.LayoutParams params) {
+    private void animateToPosition(
+            int startX,
+            int endX,
+            @Nullable Integer startY,
+            @Nullable Integer endY,
+            WindowManager.LayoutParams params
+    ) {
         ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
-        animator.setDuration(300);
+        animator.setDuration(200);
         animator.setInterpolator(new DecelerateInterpolator());
 
         animator.addUpdateListener(animation -> {
             float progress = (float) animation.getAnimatedValue();
             params.x = (int) (startX + (endX - startX) * progress);
+
+            if (startY != null && endY != null) {
+                params.y = (int) (startY + (endY - startY) * progress);
+            }
+
             try {
                 windowManager.updateViewLayout(flutterView, params);
             } catch (Exception e) {
@@ -569,10 +561,10 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
 
             dismissAreaView = View.inflate(this, R.layout.dismis_area, null);
 
-            int dimension = Commons.getPixelsFromDp(this, 50);
+            int dimension = Commons.getPixelsFromDp(this, 45);
             GradientDrawable ovalBackground = new GradientDrawable();
             ovalBackground.setShape(GradientDrawable.OVAL);
-            ovalBackground.setSize(dimension,dimension);
+            ovalBackground.setSize(dimension, dimension);
             dismissAreaView.setBackground(ovalBackground);
 
 
@@ -584,7 +576,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
                     PixelFormat.TRANSLUCENT);
             dismissParams.gravity = Gravity.START | Gravity.CENTER;
             dismissParams.y = (screenHeight / 2) - dimension;
-            dismissParams.x = (screenWidth /2) - dimension /2;
+            dismissParams.x = (screenWidth / 2) - dimension / 2;
             dismissAreaView.setVisibility(View.GONE);
             dismissParam = dismissParams;
 
@@ -603,6 +595,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
 
 
     private void showDismissArea(boolean show) {
+        if (!isSmallLayout) return;
         if (dismissAreaView != null) {
             dismissAreaView.setVisibility(show ? View.VISIBLE : View.GONE);
             isDismissAreaVisible = show;
