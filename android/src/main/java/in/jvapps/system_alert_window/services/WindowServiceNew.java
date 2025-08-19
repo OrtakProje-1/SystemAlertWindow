@@ -11,6 +11,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
@@ -56,16 +57,13 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     public static final String INTENT_EXTRA_IS_CLOSE_WINDOW = "IsCloseWindow";
     public static final String INTENT_EXTRA_NOTIFICATION_TITLE = "NotificationTitle";
 
-
     private WindowManager windowManager;
-
     private String windowGravity;
     private int windowWidth;
     private int windowHeight;
     private View dismissAreaView;
     private boolean isDismissAreaVisible = false;
     private String lastNotificationTitle = "Overlay window service is running";
-
     private FlutterView flutterView;
     private final int paramFlags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
             ? WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED |
@@ -80,14 +78,12 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private float offsetY, offsetX;
     private int initialX, initialY;
     private boolean moving;
-
     private GradientDrawable dismissNormalDrawable;
     private GradientDrawable dismissActiveDrawable;
-
     WindowManager.LayoutParams dismissParam;
-
     private boolean isInDismissArea = false;
     private boolean isSmallLayout = true;
+    private int currentOrientation;
 
 
     @SuppressLint("UnspecifiedImmutableFlag")
@@ -103,13 +99,11 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         PendingIntent pendingIntent;
         pendingIntent = PendingIntent.getActivity(this,
                 0, notificationIntent, PendingIntent.FLAG_MUTABLE);
-
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle(lastNotificationTitle)
                 .setSmallIcon(R.drawable.ic_desktop_windows_black_24dp)
                 .setContentIntent(pendingIntent)
                 .build();
-
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(NOTIFICATION_ID, notification, FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         } else {
@@ -120,18 +114,15 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private void updateNotificationTitle(String newTitle) {
         if (newTitle != null && !newTitle.equals(lastNotificationTitle)) {
             lastNotificationTitle = newTitle;
-
             Intent notificationIntent = new Intent(this, SystemAlertWindowPlugin.class);
             PendingIntent pendingIntent;
             pendingIntent = PendingIntent.getActivity(this,
                     0, notificationIntent, PendingIntent.FLAG_MUTABLE);
-
             Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                     .setContentTitle(lastNotificationTitle)
                     .setSmallIcon(R.drawable.ic_desktop_windows_black_24dp)
                     .setContentIntent(pendingIntent)
                     .build();
-
             NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (notificationManager != null) {
                 notificationManager.notify(NOTIFICATION_ID, notification);
@@ -147,7 +138,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
             if (titleFromIntent != null) {
                 updateNotificationTitle(titleFromIntent);
             }
-
             ContextHolder.setApplicationContext(this);
             @SuppressWarnings("unchecked")
             HashMap<String, Object> paramsMap = (HashMap<String, Object>) intent.getSerializableExtra(Constants.INTENT_EXTRA_PARAMS_MAP);
@@ -183,7 +173,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(serviceChannel);
-                LogUtils.getInstance().d(TAG, "Notification channel created successfully");
             }
         }
     }
@@ -287,13 +276,11 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     }
 
     private void closeWindow(boolean isStopService) {
-        LogUtils.getInstance().i(TAG, "Closing the overlay window");
         try {
             if (windowManager != null && flutterView != null) {
                 windowManager.removeView(flutterView);
                 windowManager = null;
                 flutterView.detachFromFlutterEngine();
-                LogUtils.getInstance().i(TAG, "Successfully closed overlay window");
             }
         } catch (IllegalArgumentException e) {
             LogUtils.getInstance().e(TAG, "view not found");
@@ -340,7 +327,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
                             moveTheOverlayByDismissArea();
                         }
                         if (isInDismissArea && !inDismissArea) {
-                            animateToPosition(oldParamsX, (initialX + (int) dx), oldParamsY, (initialY + (int) dy), params);
+                            animateToPosition(oldParamsX, (initialX + (int) dx), oldParamsY, (initialY + (int) dy),50, params);
                         }
                         if (!inDismissArea) {
                             params.x = initialX + (int) dx;
@@ -377,11 +364,11 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();
         int flutterWidth = params.width > 0 ? params.width : flutterView.getWidth();
         int dismissWidth = dismissParams.width > 0 ? dismissParams.width : dismissAreaView.getWidth();
-        animateToPosition(params.x, dismissParams.x + ((dismissWidth - flutterWidth) / 2) + 1, params.y, dismissParams.y - 2, params);
+        animateToPosition(params.x, dismissParams.x + ((dismissWidth - flutterWidth) / 2) + 1, params.y, dismissParams.y - 2,50, params);
     }
 
     private boolean isPointInArea(int x1, int y1, int x2, int y2) {
-        int radius = 150;
+        int radius = currentOrientation == Configuration.ORIENTATION_LANDSCAPE ? 250 : 150;
         return x1 >= x2 - radius && x1 <= x2 + radius &&
                 y1 >= y2 - radius && y1 <= y2 + radius;
     }
@@ -411,7 +398,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         dismissNormalDrawable.setColor(Color.parseColor("#80000000"));
         dismissNormalDrawable.setStroke(3, Color.parseColor("#FFFFFF"));
         dismissNormalDrawable.setSize(120, 120);
-
         dismissActiveDrawable = new GradientDrawable();
         dismissActiveDrawable.setShape(GradientDrawable.OVAL);
         dismissActiveDrawable.setColor(Color.parseColor("#FF4444"));
@@ -422,7 +408,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private void snapToEdge(@NonNull WindowManager.LayoutParams params) {
         DisplayMetrics displayMetrics = new DisplayMetrics();
         boolean metricsObtained = false;
-
         if (windowManager != null) {
             try {
                 Display display = null;
@@ -443,7 +428,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
                 LogUtils.getInstance().e(TAG, "snapToEdge: Error getting display from WindowManager: " + e.getMessage());
             }
         }
-
         if (!metricsObtained) {
             try {
                 Resources resources = getResources();
@@ -459,19 +443,14 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
                 LogUtils.getInstance().e(TAG, "snapToEdge: Error getting display from Resources: " + e.getMessage());
             }
         }
-
         if (!metricsObtained) {
-            LogUtils.getInstance().e(TAG, "snapToEdge: Could not obtain display metrics, using default values");
             displayMetrics.widthPixels = 1080;
             displayMetrics.heightPixels = 1920;
         }
-
         int screenWidth = displayMetrics.widthPixels;
         if (screenWidth <= 0) {
-            LogUtils.getInstance().e(TAG, "snapToEdge: Invalid screen width: " + screenWidth);
             return;
         }
-
         int overlayWidth = 200;
         if (flutterView != null) {
             overlayWidth = flutterView.getWidth();
@@ -491,7 +470,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         } else {
             targetX = screenWidth - overlayWidth;
         }
-        animateToPosition(currentX, targetX, null, null, params);
+        animateToPosition(currentX, targetX, null, null,200, params);
     }
 
     private void animateToPosition(
@@ -499,20 +478,19 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
             int endX,
             @Nullable Integer startY,
             @Nullable Integer endY,
+            Integer duration,
             WindowManager.LayoutParams params
     ) {
         ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
-        animator.setDuration(200);
+        animator.setDuration(duration);
         animator.setInterpolator(new DecelerateInterpolator());
 
         animator.addUpdateListener(animation -> {
             float progress = (float) animation.getAnimatedValue();
             params.x = (int) (startX + (endX - startX) * progress);
-
             if (startY != null && endY != null) {
                 params.y = (int) (startY + (endY - startY) * progress);
             }
-
             try {
                 windowManager.updateViewLayout(flutterView, params);
             } catch (Exception e) {
@@ -524,17 +502,15 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
 
     private void checkDismissArea(boolean inDismissArea) {
         if (dismissAreaView == null) {
-            LogUtils.getInstance().d(TAG, "handleDismissAreaSnapping: dismissAreaView is null");
             return;
         }
         if (inDismissArea) {
             dismissAreaView.setBackground(dismissActiveDrawable);
-            LogUtils.getInstance().i(TAG, "---handleDismissAreaSnapping: Set to RED and LARGE");
         } else {
             dismissAreaView.setBackground(dismissNormalDrawable);
-            LogUtils.getInstance().i(TAG, "---handleDismissAreaSnapping: Set to NORMAL");
         }
     }
+
 
     private void createDismissArea() {
         try {
@@ -542,8 +518,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
             windowManager.getDefaultDisplay().getMetrics(displayMetrics);
             int screenHeight = displayMetrics.heightPixels;
             int screenWidth = displayMetrics.widthPixels;
-            LogUtils.getInstance().i(TAG, "---createDismissArea: Starting to create dismiss area");
-
             final int myParamFlags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
                     WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
@@ -556,18 +530,12 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
             } else {
                 myParamType = WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
             }
-
-            LogUtils.getInstance().i(TAG, "---createDismissArea: Using window type: " + myParamType);
-
             dismissAreaView = View.inflate(this, R.layout.dismis_area, null);
-
             int dimension = Commons.getPixelsFromDp(this, 45);
             GradientDrawable ovalBackground = new GradientDrawable();
             ovalBackground.setShape(GradientDrawable.OVAL);
             ovalBackground.setSize(dimension, dimension);
             dismissAreaView.setBackground(ovalBackground);
-
-
             WindowManager.LayoutParams dismissParams = new WindowManager.LayoutParams(
                     dimension,
                     dimension,
@@ -599,15 +567,11 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         if (dismissAreaView != null) {
             dismissAreaView.setVisibility(show ? View.VISIBLE : View.GONE);
             isDismissAreaVisible = show;
-            LogUtils.getInstance().i(TAG, "---showDismissArea: " + (show ? "SHOWING" : "HIDING") + " dismiss area");
-        } else {
-            LogUtils.getInstance().i(TAG, "---showDismissArea: dismissAreaView is null");
         }
     }
 
     private boolean isInDismissArea(int x, int y) {
         if (!isDismissAreaVisible || dismissAreaView == null) {
-            LogUtils.getInstance().i(TAG, "---[]--isInDismissArea: dismissArea not visible or null");
             return false;
         }
         try {
@@ -617,8 +581,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
             int dismissAreaY = dismissAreaLocation[1];
             int dismissAreaWidth = dismissAreaView.getWidth();
             int dismissAreaHeight = dismissAreaView.getHeight();
-            if (dismissAreaWidth <= 0) dismissAreaWidth = 80;
-            if (dismissAreaHeight <= 0) dismissAreaHeight = 80;
             int overlayWidth = flutterView.getWidth();
             int overlayHeight = flutterView.getHeight();
             if (overlayWidth <= 0) overlayWidth = 30;
@@ -632,15 +594,23 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
                             Math.pow(overlayCenterY - dismissCenterY, 2)
             );
             int snapDistance = (dismissAreaWidth / 2) + (overlayWidth / 2) + 20;
-            boolean inArea = distance <= snapDistance;
-            LogUtils.getInstance().d(TAG, "---[]--isInDismissArea: distance=" + distance + ", snapDistance=" + snapDistance + ", inArea=" + inArea);
-            return inArea;
+            return distance <= snapDistance;
         } catch (Exception e) {
             LogUtils.getInstance().e(TAG, "---[]--isInDismissArea error: " + e.getMessage());
             return false;
         }
     }
 
+    private void updateOverlayPosition() {
+        DisplayMetrics metrics = new DisplayMetrics();
+        windowManager.getDefaultDisplay().getMetrics(metrics);
+        int screenWidth = metrics.widthPixels;
+        int screenHeight = metrics.heightPixels;
+        int dimension = Commons.getPixelsFromDp(this, 45);
+        dismissParam.y = (screenHeight / 2) - dimension;
+        dismissParam.x = (screenWidth / 2) - dimension / 2;
+        windowManager.updateViewLayout(dismissAreaView, dismissParam);
+    }
 
     private void closeOverlay() {
         try {
@@ -652,6 +622,13 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         } catch (Exception e) {
             LogUtils.getInstance().i(TAG, "Error closing overlay:" + e.getMessage());
         }
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        currentOrientation = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE ? Configuration.ORIENTATION_LANDSCAPE : Configuration.ORIENTATION_PORTRAIT;
+        updateOverlayPosition();
     }
 
 }
