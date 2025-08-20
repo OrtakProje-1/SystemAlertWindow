@@ -2,6 +2,8 @@ package in.jvapps.system_alert_window.services;
 
 import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.app.Notification;
@@ -23,8 +25,10 @@ import android.view.Display;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.view.WindowMetrics;
+import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 
 import androidx.annotation.NonNull;
@@ -62,6 +66,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private int windowWidth;
     private int windowHeight;
     private View dismissAreaView;
+    private View gradientView;
     private boolean isDismissAreaVisible = false;
     private String lastNotificationTitle = "Overlay window service is running";
     private FlutterView flutterView;
@@ -92,6 +97,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         createNotificationChannel();
         startInitialForeground();
         initDrawables();
+        initOrientation();
     }
 
     private void startInitialForeground() {
@@ -327,7 +333,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
                             moveTheOverlayByDismissArea();
                         }
                         if (isInDismissArea && !inDismissArea) {
-                            animateToPosition(oldParamsX, (initialX + (int) dx), oldParamsY, (initialY + (int) dy),50, params);
+                            animateToPosition(oldParamsX, (initialX + (int) dx), oldParamsY, (initialY + (int) dy), 50, params);
                         }
                         if (!inDismissArea) {
                             params.x = initialX + (int) dx;
@@ -364,7 +370,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();
         int flutterWidth = params.width > 0 ? params.width : flutterView.getWidth();
         int dismissWidth = dismissParams.width > 0 ? dismissParams.width : dismissAreaView.getWidth();
-        animateToPosition(params.x, dismissParams.x + ((dismissWidth - flutterWidth) / 2) + 1, params.y, dismissParams.y - 2,50, params);
+        animateToPosition(params.x, dismissParams.x + ((dismissWidth - flutterWidth) / 2) + 1, params.y, dismissParams.y - 2, 50, params);
     }
 
     private boolean isPointInArea(int x1, int y1, int x2, int y2) {
@@ -395,7 +401,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private void initDrawables() {
         dismissNormalDrawable = new GradientDrawable();
         dismissNormalDrawable.setShape(GradientDrawable.OVAL);
-        dismissNormalDrawable.setColor(Color.parseColor("#80000000"));
+        dismissNormalDrawable.setColor(Color.parseColor("#B0000000"));
         dismissNormalDrawable.setStroke(3, Color.parseColor("#FFFFFF"));
         dismissNormalDrawable.setSize(120, 120);
         dismissActiveDrawable = new GradientDrawable();
@@ -470,7 +476,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         } else {
             targetX = screenWidth - overlayWidth;
         }
-        animateToPosition(currentX, targetX, null, null,200, params);
+        animateToPosition(currentX, targetX, null, null, 200, params);
     }
 
     private void animateToPosition(
@@ -530,8 +536,10 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
             } else {
                 myParamType = WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
             }
+            int dimension = Commons.getPixelsFromDp(this, 50);
+
+            // View
             dismissAreaView = View.inflate(this, R.layout.dismis_area, null);
-            int dimension = Commons.getPixelsFromDp(this, 45);
             GradientDrawable ovalBackground = new GradientDrawable();
             ovalBackground.setShape(GradientDrawable.OVAL);
             ovalBackground.setSize(dimension, dimension);
@@ -540,14 +548,15 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
                     dimension,
                     dimension,
                     myParamType,
-                    myParamFlags,
+                    myParamFlags | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                     PixelFormat.TRANSLUCENT);
             dismissParams.gravity = Gravity.START | Gravity.CENTER;
-            dismissParams.y = (screenHeight / 2) - dimension;
+            //todo en altta olacak başta
+            dismissParams.y = (screenHeight / 2) + dimension;
             dismissParams.x = (screenWidth / 2) - dimension / 2;
             dismissAreaView.setVisibility(View.GONE);
             dismissParam = dismissParams;
-
+            createGradientView(myParamType, myParamFlags, dimension);
             if (windowManager != null) {
                 windowManager.addView(dismissAreaView, dismissParams);
                 LogUtils.getInstance().d(TAG, "createDismissArea: Successfully added dismiss area to window manager");
@@ -561,13 +570,85 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         }
     }
 
+    private void createGradientView(int myParamType, int myParamFlags, int dimension) {
+        gradientView = View.inflate(this, R.layout.gradient_view, null);
+        WindowManager.LayoutParams gradientParams = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                3 * dimension,
+                myParamType,
+                myParamFlags | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT);
+        gradientParams.gravity = Gravity.BOTTOM;
+        gradientParams.y = -2 * dimension;
+        gradientView.setVisibility(View.GONE);
+        if (windowManager != null) {
+            windowManager.addView(gradientView, gradientParams);
+        }
+
+    }
 
     private void showDismissArea(boolean show) {
         if (!isSmallLayout) return;
         if (dismissAreaView != null) {
-            dismissAreaView.setVisibility(show ? View.VISIBLE : View.GONE);
+            showDismissAreaAnimation(show);
             isDismissAreaVisible = show;
         }
+    }
+
+    private void showDismissAreaAnimation(boolean show) {
+        if (!isSmallLayout) return;
+        int dimension = Commons.getPixelsFromDp(this, 50);
+        int startY = dismissParam.y;
+
+        int endY = show ? startY - (int) (2.5 * dimension) : startY + (int) (2.5 * dimension);
+
+        if (show) {
+            dismissAreaView.setVisibility(View.VISIBLE);
+            gradientView.setVisibility(View.VISIBLE);
+        }
+
+        WindowManager.LayoutParams gradientParam = (WindowManager.LayoutParams) gradientView.getLayoutParams();
+        int startGradientY = gradientParam.y;
+        int endGradientY = show ? startGradientY + 2 * dimension : startGradientY - 2 * dimension;
+
+        LogUtils.getInstance().i(TAG,"--- startGradientY: "+ startGradientY + "---endGradientY: "+ endGradientY);
+
+        ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
+        animator.setDuration(300);
+        /*
+        LinearInterpolator() → sabit hız (şu anki gibi düz).
+        AccelerateInterpolator() → yavaş başlar, hızlanarak biter.
+        DecelerateInterpolator() → hızlı başlar, yavaşlayarak biter.
+        AccelerateDecelerateInterpolator() → yavaş başlar, hızlanır, sonra yine yavaşlar (daha doğal).
+        OvershootInterpolator() → hedefine varır, biraz ileri taşar sonra geri gelir (yay efekti).
+        AnticipateInterpolator() → başlamadan önce geri çekilir, sonra ileri gider.
+        BounceInterpolator() → hedefe çarpar gibi seker. 🎾
+         */
+        animator.setInterpolator(new AccelerateDecelerateInterpolator());
+
+        animator.addUpdateListener(animation -> {
+                    float progress = (float) animation.getAnimatedValue();
+                    dismissParam.y = (int) (startY + (endY - startY) * progress);
+                    gradientParam.y = (int)(startGradientY + (endGradientY-startGradientY)* progress);
+                    try {
+                        windowManager.updateViewLayout(dismissAreaView, dismissParam);
+                        windowManager.updateViewLayout(gradientView,gradientParam);
+                    } catch (Exception e) {
+                        animator.cancel();
+                    }
+                }
+        );
+        animator.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                if (!show) {
+                    dismissAreaView.setVisibility(View.GONE);
+                    gradientView.setVisibility(View.GONE);
+                }
+            }
+        });
+        animator.start();
+
     }
 
     private boolean isInDismissArea(int x, int y) {
@@ -606,8 +687,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         windowManager.getDefaultDisplay().getMetrics(metrics);
         int screenWidth = metrics.widthPixels;
         int screenHeight = metrics.heightPixels;
-        int dimension = Commons.getPixelsFromDp(this, 45);
-        dismissParam.y = (screenHeight / 2) - dimension;
+        int dimension = Commons.getPixelsFromDp(this, 50);
+        dismissParam.y = (screenHeight / 2) + dimension;
         dismissParam.x = (screenWidth / 2) - dimension / 2;
         windowManager.updateViewLayout(dismissAreaView, dismissParam);
     }
@@ -629,6 +710,10 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         super.onConfigurationChanged(newConfig);
         currentOrientation = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE ? Configuration.ORIENTATION_LANDSCAPE : Configuration.ORIENTATION_PORTRAIT;
         updateOverlayPosition();
+    }
+
+    private void initOrientation() {
+        currentOrientation = getResources().getConfiguration().orientation;
     }
 
 }

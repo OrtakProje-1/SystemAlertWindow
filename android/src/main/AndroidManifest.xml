@@ -22,6 +22,7 @@
             tools:ignore="UnusedAttribute" />
         <service
             android:name=".services.WindowServiceNew"
+            android:configChanges="orientation|screenSize"
             android:foregroundServiceType="specialUse"
             android:enabled="true"
             android:exported="false"
