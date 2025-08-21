@@ -14,7 +14,6 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
@@ -25,11 +24,9 @@ import android.view.Display;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.view.WindowMetrics;
-import android.view.animation.AccelerateDecelerateInterpolator;
-import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -89,6 +86,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private boolean isInDismissArea = false;
     private boolean isSmallLayout = true;
     private int currentOrientation;
+    private int screenHeight;
+    private int screenWidth;
 
 
     @SuppressLint("UnspecifiedImmutableFlag")
@@ -98,6 +97,35 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         startInitialForeground();
         initDrawables();
         initOrientation();
+        getScreenSize();
+
+    }
+
+    private void getScreenSize() {
+        try {
+            setWindowManager();
+            DisplayMetrics displayMetrics = new DisplayMetrics();
+            Display display = null;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                WindowMetrics maxMetrics = windowManager.getMaximumWindowMetrics();
+                Rect bounds = maxMetrics.getBounds();
+                displayMetrics.widthPixels = bounds.width();
+                displayMetrics.heightPixels = bounds.height();
+                screenWidth = displayMetrics.widthPixels;
+                screenHeight = displayMetrics.heightPixels;
+                LogUtils.getInstance().i(TAG,"--- screenHeight: "+screenHeight + "\n--- screenWidth: "+screenWidth);
+            } else {
+                display = windowManager.getDefaultDisplay();
+            }
+            if (display != null) {
+                display.getRealMetrics(displayMetrics);
+                screenHeight = displayMetrics.heightPixels;
+                screenWidth = displayMetrics.widthPixels;
+                LogUtils.getInstance().i(TAG,"--- screenHeight: "+screenHeight + "\n--- screenWidth: "+screenWidth);
+            }
+        } catch (Exception e) {
+            LogUtils.getInstance().e(TAG, "---Error getting screen size: " + e.getMessage());
+        }
     }
 
     private void startInitialForeground() {
@@ -278,6 +306,11 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         previousParams.height = (windowHeight == 0) ? WindowManager.LayoutParams.WRAP_CONTENT : Commons.getPixelsFromDp(this, windowHeight);
         previousParams.flags = newParams.flags;
         previousParams.alpha = newParams.alpha;
+        // overlay küçültülmüş ise snapToEdge ile sağa sola yaslicaz
+        if (isSmallLayout) {
+            LogUtils.getInstance().i(TAG,"--- small layout, snap to edge");
+            snapToEdge(previousParams);
+        }
         windowManager.updateViewLayout(flutterView, previousParams);
     }
 
@@ -401,65 +434,23 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private void initDrawables() {
         dismissNormalDrawable = new GradientDrawable();
         dismissNormalDrawable.setShape(GradientDrawable.OVAL);
-        dismissNormalDrawable.setColor(Color.parseColor("#B0000000"));
-        dismissNormalDrawable.setStroke(3, Color.parseColor("#FFFFFF"));
+        dismissNormalDrawable.setColor(Color.parseColor("#40000000"));
+        dismissNormalDrawable.setStroke(2, Color.parseColor("#AAFFFFFF"));
         dismissNormalDrawable.setSize(120, 120);
         dismissActiveDrawable = new GradientDrawable();
         dismissActiveDrawable.setShape(GradientDrawable.OVAL);
         dismissActiveDrawable.setColor(Color.parseColor("#FF4444"));
-        dismissActiveDrawable.setStroke(3, Color.parseColor("#FFFFFF"));
+        dismissActiveDrawable.setStroke(2, Color.parseColor("#AAFFFFFF"));
         dismissActiveDrawable.setSize(120, 120);
     }
 
     private void snapToEdge(@NonNull WindowManager.LayoutParams params) {
-        DisplayMetrics displayMetrics = new DisplayMetrics();
-        boolean metricsObtained = false;
-        if (windowManager != null) {
-            try {
-                Display display = null;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    WindowMetrics maxMetrics = windowManager.getMaximumWindowMetrics();
-                    Rect bounds = maxMetrics.getBounds();
-                    displayMetrics.widthPixels = bounds.width();
-                    displayMetrics.heightPixels = bounds.height();
-                    metricsObtained = true;
-                } else {
-                    display = windowManager.getDefaultDisplay();
-                }
-                if (display != null) {
-                    display.getRealMetrics(displayMetrics);
-                    metricsObtained = true;
-                }
-            } catch (Exception e) {
-                LogUtils.getInstance().e(TAG, "snapToEdge: Error getting display from WindowManager: " + e.getMessage());
-            }
-        }
-        if (!metricsObtained) {
-            try {
-                Resources resources = getResources();
-                if (resources != null) {
-                    DisplayMetrics resMetrics = resources.getDisplayMetrics();
-                    if (resMetrics != null && resMetrics.widthPixels > 0) {
-                        displayMetrics.widthPixels = resMetrics.widthPixels;
-                        displayMetrics.heightPixels = resMetrics.heightPixels;
-                        metricsObtained = true;
-                    }
-                }
-            } catch (Exception e) {
-                LogUtils.getInstance().e(TAG, "snapToEdge: Error getting display from Resources: " + e.getMessage());
-            }
-        }
-        if (!metricsObtained) {
-            displayMetrics.widthPixels = 1080;
-            displayMetrics.heightPixels = 1920;
-        }
-        int screenWidth = displayMetrics.widthPixels;
         if (screenWidth <= 0) {
-            return;
+            getScreenSize();
         }
         int overlayWidth = 200;
         if (flutterView != null) {
-            overlayWidth = flutterView.getWidth();
+            overlayWidth = params.width; //  flutterView.getWidth()
             if (overlayWidth <= 0) {
                 overlayWidth = 200;
             }
@@ -476,20 +467,15 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         } else {
             targetX = screenWidth - overlayWidth;
         }
+        LogUtils.getInstance().i(TAG,"---snapToEdge overlayWidth: "+ overlayWidth+ "  params.width: "+params.width +"  overlayCenter: "+overlayCenter+"  currentX: "+currentX+"  screenCenter: "+screenCenter+"  targetX: "+targetX);
+        if (currentX == targetX) return;
         animateToPosition(currentX, targetX, null, null, 200, params);
     }
 
-    private void animateToPosition(
-            int startX,
-            int endX,
-            @Nullable Integer startY,
-            @Nullable Integer endY,
-            Integer duration,
-            WindowManager.LayoutParams params
-    ) {
+    private void animateToPosition(int startX, int endX, @Nullable Integer startY, @Nullable Integer endY, Integer duration, WindowManager.LayoutParams params) {
         ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
         animator.setDuration(duration);
-        animator.setInterpolator(new DecelerateInterpolator());
+        animator.setInterpolator(new OvershootInterpolator());
 
         animator.addUpdateListener(animation -> {
             float progress = (float) animation.getAnimatedValue();
@@ -517,13 +503,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         }
     }
 
-
     private void createDismissArea() {
         try {
-            DisplayMetrics displayMetrics = new DisplayMetrics();
-            windowManager.getDefaultDisplay().getMetrics(displayMetrics);
-            int screenHeight = displayMetrics.heightPixels;
-            int screenWidth = displayMetrics.widthPixels;
             final int myParamFlags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
                     WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
@@ -551,12 +532,11 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
                     myParamFlags | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                     PixelFormat.TRANSLUCENT);
             dismissParams.gravity = Gravity.START | Gravity.CENTER;
-            //todo en altta olacak başta
             dismissParams.y = (screenHeight / 2) + dimension;
             dismissParams.x = (screenWidth / 2) - dimension / 2;
             dismissAreaView.setVisibility(View.GONE);
             dismissParam = dismissParams;
-            createGradientView(myParamType, myParamFlags, dimension);
+            createGradientView(myParamType);
             if (windowManager != null) {
                 windowManager.addView(dismissAreaView, dismissParams);
                 LogUtils.getInstance().d(TAG, "createDismissArea: Successfully added dismiss area to window manager");
@@ -570,21 +550,20 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         }
     }
 
-    private void createGradientView(int myParamType, int myParamFlags, int dimension) {
+    private void createGradientView(int myParamType) {
         gradientView = View.inflate(this, R.layout.gradient_view, null);
         WindowManager.LayoutParams gradientParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
-                3 * dimension,
+                screenHeight / 2,
                 myParamType,
-                myParamFlags | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                262184 | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT);
-        gradientParams.gravity = Gravity.BOTTOM;
-        gradientParams.y = -2 * dimension;
+        gradientParams.gravity = Gravity.START | Gravity.CENTER;
+        gradientParams.y = screenHeight / 2;
         gradientView.setVisibility(View.GONE);
         if (windowManager != null) {
             windowManager.addView(gradientView, gradientParams);
         }
-
     }
 
     private void showDismissArea(boolean show) {
@@ -608,13 +587,12 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         }
 
         WindowManager.LayoutParams gradientParam = (WindowManager.LayoutParams) gradientView.getLayoutParams();
-        int startGradientY = gradientParam.y;
-        int endGradientY = show ? startGradientY + 2 * dimension : startGradientY - 2 * dimension;
 
-        LogUtils.getInstance().i(TAG,"--- startGradientY: "+ startGradientY + "---endGradientY: "+ endGradientY);
+        int startGradientY = gradientParam.y;
+        int endGradientY = show ? screenHeight / 2 : screenHeight;
 
         ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
-        animator.setDuration(300);
+        animator.setDuration(250);
         /*
         LinearInterpolator() → sabit hız (şu anki gibi düz).
         AccelerateInterpolator() → yavaş başlar, hızlanarak biter.
@@ -624,15 +602,15 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         AnticipateInterpolator() → başlamadan önce geri çekilir, sonra ileri gider.
         BounceInterpolator() → hedefe çarpar gibi seker. 🎾
          */
-        animator.setInterpolator(new AccelerateDecelerateInterpolator());
+        animator.setInterpolator(new OvershootInterpolator());
 
         animator.addUpdateListener(animation -> {
                     float progress = (float) animation.getAnimatedValue();
                     dismissParam.y = (int) (startY + (endY - startY) * progress);
-                    gradientParam.y = (int)(startGradientY + (endGradientY-startGradientY)* progress);
+                    gradientParam.y = (int) (startGradientY + (endGradientY - startGradientY) * progress);
                     try {
                         windowManager.updateViewLayout(dismissAreaView, dismissParam);
-                        windowManager.updateViewLayout(gradientView,gradientParam);
+                        windowManager.updateViewLayout(gradientView, gradientParam);
                     } catch (Exception e) {
                         animator.cancel();
                     }
@@ -683,10 +661,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     }
 
     private void updateOverlayPosition() {
-        DisplayMetrics metrics = new DisplayMetrics();
-        windowManager.getDefaultDisplay().getMetrics(metrics);
-        int screenWidth = metrics.widthPixels;
-        int screenHeight = metrics.heightPixels;
         int dimension = Commons.getPixelsFromDp(this, 50);
         dismissParam.y = (screenHeight / 2) + dimension;
         dismissParam.x = (screenWidth / 2) - dimension / 2;
@@ -698,6 +672,11 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
             closeWindow(true);
             if (dismissAreaView != null) {
                 windowManager.removeView(dismissAreaView);
+                dismissAreaView = null;
+            }
+            if (gradientView != null) {
+                windowManager.removeView(gradientView);
+                gradientView = null;
             }
             stopSelf();
         } catch (Exception e) {
@@ -709,11 +688,19 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         currentOrientation = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE ? Configuration.ORIENTATION_LANDSCAPE : Configuration.ORIENTATION_PORTRAIT;
+        int oldScreenHeight = screenHeight;
+        screenHeight = screenWidth;
+        screenWidth = oldScreenHeight;
         updateOverlayPosition();
+        configurationChangedMoveToFlutterView();
     }
 
     private void initOrientation() {
         currentOrientation = getResources().getConfiguration().orientation;
     }
 
+    private void configurationChangedMoveToFlutterView() {
+        WindowManager.LayoutParams flutterParams = (WindowManager.LayoutParams) flutterView.getLayoutParams();
+        snapToEdge(flutterParams);
+    }
 }
