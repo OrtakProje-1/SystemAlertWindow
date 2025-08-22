@@ -26,7 +26,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.WindowMetrics;
-import android.view.animation.OvershootInterpolator;
+import android.view.animation.DecelerateInterpolator;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -93,8 +93,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     @SuppressLint("UnspecifiedImmutableFlag")
     @Override
     public void onCreate() {
-        createNotificationChannel();
-        startInitialForeground();
+        //createNotificationChannel();
+        //startInitialForeground();
         initDrawables();
         initOrientation();
         getScreenSize();
@@ -162,14 +162,13 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         }
     }
 
-
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (null != intent && intent.getExtras() != null) {
-            String titleFromIntent = intent.getStringExtra(INTENT_EXTRA_NOTIFICATION_TITLE);
-            if (titleFromIntent != null) {
-                updateNotificationTitle(titleFromIntent);
-            }
+//            String titleFromIntent = intent.getStringExtra(INTENT_EXTRA_NOTIFICATION_TITLE);
+//            if (titleFromIntent != null) {
+//                updateNotificationTitle(titleFromIntent);
+//            }
             ContextHolder.setApplicationContext(this);
             @SuppressWarnings("unchecked")
             HashMap<String, Object> paramsMap = (HashMap<String, Object>) intent.getSerializableExtra(Constants.INTENT_EXTRA_PARAMS_MAP);
@@ -471,7 +470,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private void animateToPosition(int startX, int endX, @Nullable Integer startY, @Nullable Integer endY, Integer duration, WindowManager.LayoutParams params) {
         ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
         animator.setDuration(duration);
-        animator.setInterpolator(new OvershootInterpolator());
+        animator.setInterpolator(new DecelerateInterpolator());
 
         animator.addUpdateListener(animation -> {
             float progress = (float) animation.getAnimatedValue();
@@ -600,7 +599,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         AnticipateInterpolator() → başlamadan önce geri çekilir, sonra ileri gider.
         BounceInterpolator() → hedefe çarpar gibi seker. 🎾
          */
-        animator.setInterpolator(new OvershootInterpolator());
+        animator.setInterpolator(new DecelerateInterpolator());
 
         animator.addUpdateListener(animation -> {
                     float progress = (float) animation.getAnimatedValue();
