@@ -113,7 +113,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
                 displayMetrics.heightPixels = bounds.height();
                 screenWidth = displayMetrics.widthPixels;
                 screenHeight = displayMetrics.heightPixels;
-                LogUtils.getInstance().i(TAG,"--- screenHeight: "+screenHeight + "\n--- screenWidth: "+screenWidth);
             } else {
                 display = windowManager.getDefaultDisplay();
             }
@@ -121,7 +120,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
                 display.getRealMetrics(displayMetrics);
                 screenHeight = displayMetrics.heightPixels;
                 screenWidth = displayMetrics.widthPixels;
-                LogUtils.getInstance().i(TAG,"--- screenHeight: "+screenHeight + "\n--- screenWidth: "+screenWidth);
             }
         } catch (Exception e) {
             LogUtils.getInstance().e(TAG, "---Error getting screen size: " + e.getMessage());
@@ -308,7 +306,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         previousParams.alpha = newParams.alpha;
         // overlay küçültülmüş ise snapToEdge ile sağa sola yaslicaz
         if (isSmallLayout) {
-            LogUtils.getInstance().i(TAG,"--- small layout, snap to edge");
             snapToEdge(previousParams);
         }
         windowManager.updateViewLayout(flutterView, previousParams);
@@ -467,7 +464,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         } else {
             targetX = screenWidth - overlayWidth;
         }
-        LogUtils.getInstance().i(TAG,"---snapToEdge overlayWidth: "+ overlayWidth+ "  params.width: "+params.width +"  overlayCenter: "+overlayCenter+"  currentX: "+currentX+"  screenCenter: "+screenCenter+"  targetX: "+targetX);
         if (currentX == targetX) return;
         animateToPosition(currentX, targetX, null, null, 200, params);
     }
@@ -577,9 +573,11 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private void showDismissAreaAnimation(boolean show) {
         if (!isSmallLayout) return;
         int dimension = Commons.getPixelsFromDp(this, 50);
-        int startY = dismissParam.y;
+        int startY = (screenHeight / 2) + dimension;
+        int endY = (screenHeight / 2)  - (int) (1.5 * dimension);
 
-        int endY = show ? startY - (int) (2.5 * dimension) : startY + (int) (2.5 * dimension);
+        int dismissStartByShow = show ? startY:endY;
+        int dismissEndByShow = show ? endY:startY;
 
         if (show) {
             dismissAreaView.setVisibility(View.VISIBLE);
@@ -606,7 +604,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
 
         animator.addUpdateListener(animation -> {
                     float progress = (float) animation.getAnimatedValue();
-                    dismissParam.y = (int) (startY + (endY - startY) * progress);
+                    dismissParam.y = (int) (dismissStartByShow + (dismissEndByShow - dismissStartByShow) * progress);
                     gradientParam.y = (int) (startGradientY + (endGradientY - startGradientY) * progress);
                     try {
                         windowManager.updateViewLayout(dismissAreaView, dismissParam);
