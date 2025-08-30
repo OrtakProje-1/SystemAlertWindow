@@ -5,5 +5,5 @@
     android:layout_height="wrap_content"
     android:layout_gravity="center|bottom"
     android:contentDescription="@null"
-    android:padding="12dp"
+    android:padding="30dp"
     android:src="@drawable/ic_cancel_icon" />

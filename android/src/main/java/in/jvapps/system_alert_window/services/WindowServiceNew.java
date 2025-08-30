@@ -88,7 +88,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private int currentOrientation;
     private int screenHeight;
     private int screenWidth;
-
+    private int dpDismissArea = 75;
 
     @SuppressLint("UnspecifiedImmutableFlag")
     @Override
@@ -330,6 +330,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     public boolean onTouch(View v, MotionEvent event) {
         if (windowManager != null) {
             WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();
+            int dimension = Commons.getPixelsFromDp(this, dpDismissArea);
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
                     moving = false;
@@ -354,8 +355,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
                         boolean inDismissArea = isPointInArea(
                                 initialX + (int) dx,
                                 initialY + (int) dy,
-                                dismissParam.x,
-                                dismissParam.y
+                                screenWidth / 2,
+                                (screenHeight / 2) - (int) (1.5 * dimension)
                         );
                         checkDismissArea(inDismissArea);
                         if (!isInDismissArea && inDismissArea) {
@@ -403,7 +404,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     }
 
     private boolean isPointInArea(int x1, int y1, int x2, int y2) {
-        int radius = currentOrientation == Configuration.ORIENTATION_LANDSCAPE ? 250 : 150;
+        int radius = currentOrientation == Configuration.ORIENTATION_LANDSCAPE ? 250 : 200;
         return x1 >= x2 - radius && x1 <= x2 + radius &&
                 y1 >= y2 - radius && y1 <= y2 + radius;
     }
@@ -430,14 +431,10 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private void initDrawables() {
         dismissNormalDrawable = new GradientDrawable();
         dismissNormalDrawable.setShape(GradientDrawable.OVAL);
-        dismissNormalDrawable.setColor(Color.parseColor("#40000000"));
-        dismissNormalDrawable.setStroke(2, Color.parseColor("#AAFFFFFF"));
-        dismissNormalDrawable.setSize(120, 120);
+        dismissNormalDrawable.setColor(Color.parseColor("#000000"));
         dismissActiveDrawable = new GradientDrawable();
         dismissActiveDrawable.setShape(GradientDrawable.OVAL);
         dismissActiveDrawable.setColor(Color.parseColor("#FF4444"));
-        dismissActiveDrawable.setStroke(2, Color.parseColor("#AAFFFFFF"));
-        dismissActiveDrawable.setSize(120, 120);
     }
 
     private void snapToEdge(@NonNull WindowManager.LayoutParams params) {
@@ -459,9 +456,9 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         int screenCenter = screenWidth / 2;
         int targetX;
         if (currentX + overlayCenter < screenCenter) {
-            targetX = 0;
+            targetX = 8;
         } else {
-            targetX = screenWidth - overlayWidth;
+            targetX = screenWidth - overlayWidth - 8;
         }
         if (currentX == targetX) return;
         animateToPosition(currentX, targetX, null, null, 200, params);
@@ -512,7 +509,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
             } else {
                 myParamType = WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
             }
-            int dimension = Commons.getPixelsFromDp(this, 50);
+            int dimension = Commons.getPixelsFromDp(this, dpDismissArea);
 
             // View
             dismissAreaView = View.inflate(this, R.layout.dismis_area, null);
@@ -534,10 +531,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
             createGradientView(myParamType);
             if (windowManager != null) {
                 windowManager.addView(dismissAreaView, dismissParams);
-                LogUtils.getInstance().d(TAG, "createDismissArea: Successfully added dismiss area to window manager");
-            } else {
-                LogUtils.getInstance().e(TAG, "createDismissArea: windowManager is null");
-            }
+            } 
         } catch (SecurityException e) {
             LogUtils.getInstance().e(TAG, "createDismissArea: Permission denied - " + e.getMessage());
         } catch (Exception e) {
@@ -548,12 +542,13 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private void createGradientView(int myParamType) {
         gradientView = View.inflate(this, R.layout.gradient_view, null);
         WindowManager.LayoutParams gradientParams = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
+                screenWidth,
                 screenHeight / 2,
                 myParamType,
                 262184 | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT);
         gradientParams.gravity = Gravity.START | Gravity.CENTER;
+        gradientParams.x = 0;
         gradientParams.y = screenHeight / 2;
         gradientView.setVisibility(View.GONE);
         if (windowManager != null) {
@@ -571,12 +566,12 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
 
     private void showDismissAreaAnimation(boolean show) {
         if (!isSmallLayout) return;
-        int dimension = Commons.getPixelsFromDp(this, 50);
+        int dimension = Commons.getPixelsFromDp(this, dpDismissArea);
         int startY = (screenHeight / 2) + dimension;
-        int endY = (screenHeight / 2)  - (int) (1.5 * dimension);
+        int endY = (screenHeight / 2) - (int) (1.5 * dimension);
 
-        int dismissStartByShow = show ? startY:endY;
-        int dismissEndByShow = show ? endY:startY;
+        int dismissStartByShow = show ? startY : endY;
+        int dismissEndByShow = show ? endY : startY;
 
         if (show) {
             dismissAreaView.setVisibility(View.VISIBLE);
@@ -584,10 +579,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         }
 
         WindowManager.LayoutParams gradientParam = (WindowManager.LayoutParams) gradientView.getLayoutParams();
-
         int startGradientY = gradientParam.y;
-        int endGradientY = show ? screenHeight / 2 : screenHeight;
-
+        int endGradientY = show ? (int) (screenHeight / 3.5) : screenHeight;
         ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
         animator.setDuration(250);
         /*
@@ -604,6 +597,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         animator.addUpdateListener(animation -> {
                     float progress = (float) animation.getAnimatedValue();
                     dismissParam.y = (int) (dismissStartByShow + (dismissEndByShow - dismissStartByShow) * progress);
+                    dismissParam.alpha = show ? progress : 1 - progress;
+                    gradientParam.alpha = show ? progress : 1 - progress;
                     gradientParam.y = (int) (startGradientY + (endGradientY - startGradientY) * progress);
                     try {
                         windowManager.updateViewLayout(dismissAreaView, dismissParam);
@@ -652,7 +647,6 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
             int snapDistance = (dismissAreaWidth / 2) + (overlayWidth / 2) + 20;
             return distance <= snapDistance;
         } catch (Exception e) {
-            LogUtils.getInstance().e(TAG, "---[]--isInDismissArea error: " + e.getMessage());
             return false;
         }
     }
@@ -690,6 +684,7 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         screenWidth = oldScreenHeight;
         updateOverlayPosition();
         configurationChangedMoveToFlutterView();
+        updateViewSize();
     }
 
     private void initOrientation() {
@@ -699,5 +694,14 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private void configurationChangedMoveToFlutterView() {
         WindowManager.LayoutParams flutterParams = (WindowManager.LayoutParams) flutterView.getLayoutParams();
         snapToEdge(flutterParams);
+    }
+
+    private void updateViewSize() {
+        if (gradientView != null) {
+            WindowManager.LayoutParams gradientParam = (WindowManager.LayoutParams) gradientView.getLayoutParams();
+            gradientParam.height = screenHeight / 2;
+            gradientParam.width = screenWidth;
+            windowManager.updateViewLayout(gradientView, gradientParam);
+        }
     }
 }
