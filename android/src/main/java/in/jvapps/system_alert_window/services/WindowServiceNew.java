@@ -652,10 +652,12 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     }
 
     private void updateOverlayPosition() {
-        int dimension = Commons.getPixelsFromDp(this, 50);
-        dismissParam.y = (screenHeight / 2) + dimension;
-        dismissParam.x = (screenWidth / 2) - dimension / 2;
-        windowManager.updateViewLayout(dismissAreaView, dismissParam);
+        if (dismissParam != null) {
+            int dimension = Commons.getPixelsFromDp(this, 50);
+            dismissParam.y = (screenHeight / 2) + dimension;
+            dismissParam.x = (screenWidth / 2) - dimension / 2;
+            windowManager.updateViewLayout(dismissAreaView, dismissParam);
+        }
     }
 
     private void closeOverlay() {
