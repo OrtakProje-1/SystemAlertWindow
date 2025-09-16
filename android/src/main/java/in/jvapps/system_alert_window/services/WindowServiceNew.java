@@ -694,8 +694,10 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     }
 
     private void configurationChangedMoveToFlutterView() {
+        if (flutterView != null && flutterView.getLayoutParams() != null) {
         WindowManager.LayoutParams flutterParams = (WindowManager.LayoutParams) flutterView.getLayoutParams();
         snapToEdge(flutterParams);
+    }
     }
 
     private void updateViewSize() {
