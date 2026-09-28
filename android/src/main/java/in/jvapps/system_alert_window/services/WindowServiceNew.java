@@ -24,6 +24,7 @@ import android.view.Display;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.WindowManager;
 import android.view.WindowMetrics;
 import android.view.animation.DecelerateInterpolator;
@@ -80,6 +81,8 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     private float offsetY, offsetX;
     private int initialX, initialY;
     private boolean moving;
+    private boolean dragStartedInRegion;
+    private float dragRegionHeightFraction = 1.0f;
     private GradientDrawable dismissNormalDrawable;
     private GradientDrawable dismissActiveDrawable;
     WindowManager.LayoutParams dismissParam;
@@ -220,6 +223,10 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
         windowWidth = NumberUtils.getInt(paramsMap.get(Constants.KEY_WIDTH));
         windowHeight = NumberUtils.getInt(paramsMap.get(Constants.KEY_HEIGHT));
         isSmallLayout = windowHeight == windowWidth;
+        Object dragRegion = paramsMap.get("dragRegionHeightFraction");
+        if (dragRegion instanceof Number) {
+            dragRegionHeightFraction = Math.max(0.0f, Math.min(1.0f, ((Number) dragRegion).floatValue()));
+        }
     }
 
     private WindowManager.LayoutParams getLayoutParams() {
@@ -328,73 +335,81 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouch(View v, MotionEvent event) {
-        if (windowManager != null) {
-            WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();
-            int dimension = Commons.getPixelsFromDp(this, dpDismissArea);
-            switch (event.getAction()) {
-                case MotionEvent.ACTION_DOWN:
-                    moving = false;
-                    offsetX = event.getRawX();
-                    offsetY = event.getRawY();
-                    initialX = params.x;
-                    initialY = params.y;
-                    break;
-                case MotionEvent.ACTION_MOVE:
-                    float X = event.getRawX();
-                    float Y = event.getRawY();
-                    float dx = X - offsetX;
-                    float dy = Y - offsetY;
-                    if (!moving && (Math.abs(dy) > 10 || Math.abs(dx) > 10)) {
-                        moving = true;
-                        showDismissArea(true);
-                    }
-                    if (moving) {
-                        if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return false;
-                        int oldParamsX = params.x;
-                        int oldParamsY = params.y;
-                        boolean inDismissArea = isPointInArea(
-                                initialX + (int) dx,
-                                initialY + (int) dy,
-                                screenWidth / 2,
-                                (screenHeight / 2) - (int) (1.5 * dimension)
-                        );
-                        checkDismissArea(inDismissArea);
-                        if (!isInDismissArea && inDismissArea) {
-                            moveTheOverlayByDismissArea();
-                        }
-                        if (isInDismissArea && !inDismissArea) {
-                            animateToPosition(oldParamsX, (initialX + (int) dx), oldParamsY, (initialY + (int) dy), 50, params);
-                        }
-                        if (!inDismissArea) {
-                            params.x = initialX + (int) dx;
-                            params.y = initialY + (int) dy;
-                            windowManager.updateViewLayout(flutterView, params);
-                        }
-                        isInDismissArea = inDismissArea;
-                    }
-                    break;
-                case MotionEvent.ACTION_UP:
-                    if (moving) {
-                        int[] overlayLocation = new int[2];
-                        flutterView.getLocationOnScreen(overlayLocation);
-                        int overlayX = overlayLocation[0];
-                        int overlayY = overlayLocation[1];
-                        boolean inDismissArea = isInDismissArea(overlayX, overlayY);
-                        if (inDismissArea) {
-                            closeOverlay();
-                        } else {
-                            snapToEdge(params);
-                        }
-                        showDismissArea(false);
-                    }
-                    moving = false;
-                    break;
-            }
-            return false;
-        }
-        return false;
-    }
+        if (windowManager == null || flutterView == null) return false;
 
+        WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();
+        int dimension = Commons.getPixelsFromDp(this, dpDismissArea);
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                moving = false;
+                isInDismissArea = false;
+                dragStartedInRegion = event.getY() >= 0
+                        && event.getY() <= flutterView.getHeight() * dragRegionHeightFraction;
+                offsetX = event.getRawX();
+                offsetY = event.getRawY();
+                initialX = params.x;
+                initialY = params.y;
+                return false;
+            case MotionEvent.ACTION_MOVE:
+                if (!dragStartedInRegion) return false;
+                float dx = event.getRawX() - offsetX;
+                float dy = event.getRawY() - offsetY;
+                if (!moving && Math.hypot(dx, dy) > ViewConfiguration.get(this).getScaledTouchSlop()) {
+                    moving = true;
+                    MotionEvent cancel = MotionEvent.obtain(event);
+                    cancel.setAction(MotionEvent.ACTION_CANCEL);
+                    flutterView.onTouchEvent(cancel);
+                    cancel.recycle();
+                    showDismissArea(true);
+                }
+                if (!moving) return false;
+                int oldParamsX = params.x;
+                int oldParamsY = params.y;
+                boolean inDismissArea = isPointInArea(
+                        initialX + (int) dx,
+                        initialY + (int) dy,
+                        screenWidth / 2,
+                        (screenHeight / 2) - (int) (1.5 * dimension)
+                );
+                checkDismissArea(inDismissArea);
+                if (!isInDismissArea && inDismissArea) moveTheOverlayByDismissArea();
+                if (isInDismissArea && !inDismissArea) {
+                    animateToPosition(oldParamsX, initialX + (int) dx, oldParamsY, initialY + (int) dy, 50, params);
+                }
+                if (!inDismissArea) {
+                    params.x = initialX + (int) dx;
+                    params.y = initialY + (int) dy;
+                    windowManager.updateViewLayout(flutterView, params);
+                }
+                isInDismissArea = inDismissArea;
+                return true;
+            case MotionEvent.ACTION_UP:
+                boolean wasMoving = moving;
+                moving = false;
+                dragStartedInRegion = false;
+                if (wasMoving) {
+                    int[] overlayLocation = new int[2];
+                    flutterView.getLocationOnScreen(overlayLocation);
+                    if (isInDismissArea(overlayLocation[0], overlayLocation[1])) {
+                        closeOverlay();
+                    } else {
+                        snapToEdge(params);
+                    }
+                    showDismissArea(false);
+                }
+                isInDismissArea = false;
+                return wasMoving;
+            case MotionEvent.ACTION_CANCEL:
+                boolean wasDragging = moving;
+                moving = false;
+                dragStartedInRegion = false;
+                isInDismissArea = false;
+                if (wasDragging) showDismissArea(false);
+                return wasDragging;
+            default:
+                return moving;
+        }
+    }
     private void moveTheOverlayByDismissArea() {
         WindowManager.LayoutParams dismissParams = (WindowManager.LayoutParams) dismissAreaView.getLayoutParams();
         WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();

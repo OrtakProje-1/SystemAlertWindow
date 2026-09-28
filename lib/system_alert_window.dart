@@ -7,13 +7,19 @@ enum SystemWindowGravity { TOP, BOTTOM, CENTER, LEADING, TRAILING }
 
 enum SystemWindowPrefMode { DEFAULT, OVERLAY, BUBBLE }
 
-enum SystemWindowFlags { FLAG_NOT_FOCUSABLE, FLAG_NOT_TOUCH_MODAL, FLAG_NOT_TOUCHABLE }
+enum SystemWindowFlags {
+  FLAG_NOT_FOCUSABLE,
+  FLAG_NOT_TOUCH_MODAL,
+  FLAG_NOT_TOUCHABLE
+}
 
 class SystemAlertWindow {
   ///Channel name to handle the communication between flutter and platform specific code
-  static const MethodChannel _channel = const MethodChannel(Constants.CHANNEL, JSONMethodCodec());
+  static const MethodChannel _channel =
+      const MethodChannel(Constants.CHANNEL, JSONMethodCodec());
 
-  static const BasicMessageChannel _overlayMessageChannel = BasicMessageChannel(Constants.MESSAGE_CHANNEL, JSONMessageCodec());
+  static const BasicMessageChannel _overlayMessageChannel =
+      BasicMessageChannel(Constants.MESSAGE_CHANNEL, JSONMessageCodec());
 
   static final StreamController _controller = StreamController();
 
@@ -34,13 +40,17 @@ class SystemAlertWindow {
   }
 
   /// Check if system window permission is granted
-  static Future<bool?> checkPermissions({SystemWindowPrefMode prefMode = SystemWindowPrefMode.DEFAULT}) async {
-    return await _channel.invokeMethod('checkPermissions', [Commons.getSystemWindowPrefMode(prefMode)]);
+  static Future<bool?> checkPermissions(
+      {SystemWindowPrefMode prefMode = SystemWindowPrefMode.DEFAULT}) async {
+    return await _channel.invokeMethod(
+        'checkPermissions', [Commons.getSystemWindowPrefMode(prefMode)]);
   }
 
   /// Request the corresponding system window permission
-  static Future<bool?> requestPermissions({SystemWindowPrefMode prefMode = SystemWindowPrefMode.DEFAULT}) async {
-    return await _channel.invokeMethod('requestPermissions', [Commons.getSystemWindowPrefMode(prefMode)]);
+  static Future<bool?> requestPermissions(
+      {SystemWindowPrefMode prefMode = SystemWindowPrefMode.DEFAULT}) async {
+    return await _channel.invokeMethod(
+        'requestPermissions', [Commons.getSystemWindowPrefMode(prefMode)]);
   }
 
   /// Show System Window
@@ -56,17 +66,30 @@ class SystemAlertWindow {
       {SystemWindowGravity gravity = SystemWindowGravity.CENTER,
       int? width,
       int? height,
+      double dragRegionHeightFraction = 1.0,
       String notificationTitle = "Title",
       String notificationBody = "Body",
       SystemWindowPrefMode prefMode = SystemWindowPrefMode.DEFAULT,
       List<SystemWindowFlags>? layoutParamFlags}) async {
+    if (!dragRegionHeightFraction.isFinite ||
+        dragRegionHeightFraction < 0 ||
+        dragRegionHeightFraction > 1) {
+      throw RangeError.range(
+          dragRegionHeightFraction, 0, 1, 'dragRegionHeightFraction');
+    }
     final Map<String, dynamic> params = <String, dynamic>{
       'gravity': Commons.getWindowGravity(gravity),
       'width': width ?? Constants.MATCH_PARENT,
       'height': height ?? Constants.WRAP_CONTENT,
-      'layoutParamFlags': Commons.flagsToJson(layoutParamFlags ?? [])
+      'layoutParamFlags': Commons.flagsToJson(layoutParamFlags ?? []),
+      'dragRegionHeightFraction': dragRegionHeightFraction
     };
-    return await _channel.invokeMethod('showSystemWindow', [notificationTitle, notificationBody, params, Commons.getSystemWindowPrefMode(prefMode)]);
+    return await _channel.invokeMethod('showSystemWindow', [
+      notificationTitle,
+      notificationBody,
+      params,
+      Commons.getSystemWindowPrefMode(prefMode)
+    ]);
   }
 
   /// Update System Window
@@ -82,18 +105,30 @@ class SystemAlertWindow {
       {SystemWindowGravity gravity = SystemWindowGravity.CENTER,
       int? width,
       int? height,
+      double? dragRegionHeightFraction,
       String notificationTitle = "Title",
       String notificationBody = "Body",
       SystemWindowPrefMode prefMode = SystemWindowPrefMode.DEFAULT,
       List<SystemWindowFlags>? layoutParamFlags}) async {
+    if (dragRegionHeightFraction != null &&
+        (dragRegionHeightFraction < 0 || dragRegionHeightFraction > 1)) {
+      throw RangeError.range(
+          dragRegionHeightFraction, 0, 1, 'dragRegionHeightFraction');
+    }
     final Map<String, dynamic> params = <String, dynamic>{
       'gravity': Commons.getWindowGravity(gravity),
       'width': width ?? Constants.MATCH_PARENT,
       'height': height ?? Constants.WRAP_CONTENT,
-      'layoutParamFlags': Commons.flagsToJson(layoutParamFlags ?? [])
+      'layoutParamFlags': Commons.flagsToJson(layoutParamFlags ?? []),
+      if (dragRegionHeightFraction != null)
+        'dragRegionHeightFraction': dragRegionHeightFraction
     };
-    return await _channel
-        .invokeMethod('updateSystemWindow', [notificationTitle, notificationBody, params, Commons.getSystemWindowPrefMode(prefMode)]);
+    return await _channel.invokeMethod('updateSystemWindow', [
+      notificationTitle,
+      notificationBody,
+      params,
+      Commons.getSystemWindowPrefMode(prefMode)
+    ]);
   }
 
   /// Broadcast data to system window
@@ -115,11 +150,15 @@ class SystemAlertWindow {
   }
 
   /// Closes the system window
-  static Future<bool?> closeSystemWindow({SystemWindowPrefMode prefMode = SystemWindowPrefMode.DEFAULT}) async {
-    return await _channel.invokeMethod('closeSystemWindow', [Commons.getSystemWindowPrefMode(prefMode)]);
+  static Future<bool?> closeSystemWindow(
+      {SystemWindowPrefMode prefMode = SystemWindowPrefMode.DEFAULT}) async {
+    return await _channel.invokeMethod(
+        'closeSystemWindow', [Commons.getSystemWindowPrefMode(prefMode)]);
   }
 
-  static Future<bool?> isBubbleMode({SystemWindowPrefMode prefMode = SystemWindowPrefMode.DEFAULT}) async {
-    return await _channel.invokeMethod('isBubbleMode', [Commons.getSystemWindowPrefMode(prefMode)]);
+  static Future<bool?> isBubbleMode(
+      {SystemWindowPrefMode prefMode = SystemWindowPrefMode.DEFAULT}) async {
+    return await _channel.invokeMethod(
+        'isBubbleMode', [Commons.getSystemWindowPrefMode(prefMode)]);
   }
 }
