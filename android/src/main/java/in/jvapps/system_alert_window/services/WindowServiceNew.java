@@ -652,25 +652,29 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     }
 
     private void updateOverlayPosition() {
-        if (dismissParam != null) {
+        if (dismissParam != null && windowManager != null && dismissAreaView != null) {
             int dimension = Commons.getPixelsFromDp(this, 50);
             dismissParam.y = (screenHeight / 2) + dimension;
             dismissParam.x = (screenWidth / 2) - dimension / 2;
-            windowManager.updateViewLayout(dismissAreaView, dismissParam);
+            try {
+                windowManager.updateViewLayout(dismissAreaView, dismissParam);
+            } catch (Exception e) {
+                LogUtils.getInstance().e(TAG, "Error updateOverlayPosition: " + e.getMessage());
+            }
         }
     }
 
     private void closeOverlay() {
         try {
-            closeWindow(true);
-            if (dismissAreaView != null) {
+            if (dismissAreaView != null && windowManager != null) {
                 windowManager.removeView(dismissAreaView);
                 dismissAreaView = null;
             }
-            if (gradientView != null) {
+            if (gradientView != null && windowManager != null) {
                 windowManager.removeView(gradientView);
                 gradientView = null;
             }
+            closeWindow(true);
             stopSelf();
         } catch (Exception e) {
             LogUtils.getInstance().i(TAG, "Error closing overlay:" + e.getMessage());
@@ -680,13 +684,17 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        currentOrientation = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE ? Configuration.ORIENTATION_LANDSCAPE : Configuration.ORIENTATION_PORTRAIT;
-        int oldScreenHeight = screenHeight;
-        screenHeight = screenWidth;
-        screenWidth = oldScreenHeight;
-        updateOverlayPosition();
-        configurationChangedMoveToFlutterView();
-        updateViewSize();
+        try {
+            currentOrientation = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE ? Configuration.ORIENTATION_LANDSCAPE : Configuration.ORIENTATION_PORTRAIT;
+            int oldScreenHeight = screenHeight;
+            screenHeight = screenWidth;
+            screenWidth = oldScreenHeight;
+            updateOverlayPosition();
+            configurationChangedMoveToFlutterView();
+            updateViewSize();
+        } catch (Exception e) {
+            LogUtils.getInstance().e(TAG, "Error onConfigurationChanged: " + e.getMessage());
+        }
     }
 
     private void initOrientation() {
@@ -694,18 +702,24 @@ public class WindowServiceNew extends Service implements View.OnTouchListener {
     }
 
     private void configurationChangedMoveToFlutterView() {
-        if (flutterView != null && flutterView.getLayoutParams() != null) {
-        WindowManager.LayoutParams flutterParams = (WindowManager.LayoutParams) flutterView.getLayoutParams();
-        snapToEdge(flutterParams);
-    }
+        if (flutterView != null && flutterView.getLayoutParams() != null && windowManager != null) {
+            WindowManager.LayoutParams flutterParams = (WindowManager.LayoutParams) flutterView.getLayoutParams();
+            snapToEdge(flutterParams);
+        }
     }
 
     private void updateViewSize() {
-        if (gradientView != null) {
+        if (gradientView != null && windowManager != null) {
             WindowManager.LayoutParams gradientParam = (WindowManager.LayoutParams) gradientView.getLayoutParams();
-            gradientParam.height = screenHeight / 2;
-            gradientParam.width = screenWidth;
-            windowManager.updateViewLayout(gradientView, gradientParam);
+            if (gradientParam != null) {
+                gradientParam.height = screenHeight / 2;
+                gradientParam.width = screenWidth;
+                try {
+                    windowManager.updateViewLayout(gradientView, gradientParam);
+                } catch (Exception e) {
+                    LogUtils.getInstance().e(TAG, "Error updateViewSize: " + e.getMessage());
+                }
+            }
         }
     }
 }
